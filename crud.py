@@ -31,3 +31,37 @@ def get_parties(
         .limit(limit)
         .all()
     )
+
+
+def create_product(
+    db: Session,
+    product: schemas.ProductCreate,
+) -> models.Product:
+    db_product = models.Product(
+        name=product.name,
+        hsn=product.hsn,
+        buy_price=product.buy_price,
+        sell_price=product.sell_price,
+        gst_rate=product.gst_rate,
+        stock_qty=product.stock_qty,
+    )
+
+    db.add(db_product)
+    db.commit()
+    db.refresh(db_product)
+
+    return db_product
+
+
+def get_products(
+    db: Session,
+    skip: int = 0,
+    limit: int = 100,
+) -> list[models.Product]:
+    return (
+        db.query(models.Product)
+        .order_by(models.Product.id.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
