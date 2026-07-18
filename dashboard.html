@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Algo Backtesting Scanner — Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,72,500;0,72,600;0,72,700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0B0F14; --panel:#12181F; --panel-raised:#161D26; --panel-line:#232C36;
+    --paper:#E9E4D8; --paper-dim:#F5F1E7;
+    --amber:#C99A4B; --amber-dim:rgba(201,154,75,0.15);
+    --teal:#4FA695; --teal-dim:rgba(79,166,149,0.15);
+    --red:#B5624B; --red-dim:rgba(181,98,75,0.15);
+    --muted:#8B93A0;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ background:var(--ink); color:var(--paper); font-family:'IBM Plex Sans', sans-serif; line-height:1.5; }
+  ::selection{ background:var(--amber); color:var(--ink); }
+
+  header{
+    border-bottom:1px solid var(--panel-line); background:var(--panel);
+    padding:18px 20px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;
+  }
+  header h1{ font-family:'Newsreader', serif; font-weight:600; font-size:20px; color:var(--paper-dim); }
+  .status-dot{ width:8px; height:8px; border-radius:50%; display:inline-block; margin-right:6px; }
+  .status-dot.ok{ background:var(--teal); box-shadow:0 0 0 3px var(--teal-dim); }
+  .status-dot.bad{ background:var(--red); box-shadow:0 0 0 3px var(--red-dim); }
+  #apiStatus{ font-family:'IBM Plex Mono', monospace; font-size:12px; color:var(--muted); }
+
+  main{ max-width:1100px; margin:0 auto; padding:24px 20px 80px; display:grid; gap:20px; }
+
+  .card{
+    background:var(--panel); border:1px solid var(--panel-line); border-radius:4px; padding:20px;
+  }
+  .card h2{ font-family:'Newsreader', serif; font-size:18px; color:var(--paper-dim); margin-bottom:14px; font-weight:600; }
+
+  .controls-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:14px; }
+  label{ display:block; font-size:11px; text-transform:uppercase; letter-spacing:0.06em; color:var(--muted); margin-bottom:6px; }
+  select, input[type=number], input[type=date]{
+    width:100%; background:var(--panel-raised); border:1px solid var(--panel-line); color:var(--paper);
+    padding:9px 10px; border-radius:3px; font-family:'IBM Plex Mono', monospace; font-size:13px;
+  }
+  select:focus, input:focus{ outline:1px solid var(--amber); }
+
+  .indicator-search{ margin-bottom:12px; }
+  .indicator-grid{
+    display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:8px;
+    max-height:280px; overflow-y:auto; padding-right:4px;
+  }
+  .ind-chip{
+    display:flex; align-items:center; gap:8px; background:var(--panel-raised);
+    border:1px solid var(--panel-line); border-radius:3px; padding:8px 10px; cursor:pointer;
+    font-family:'IBM Plex Mono', monospace; font-size:12px; transition:border-color 0.15s;
+  }
+  .ind-chip:hover{ border-color:var(--amber); }
+  .ind-chip.active{ border-color:var(--teal); background:var(--teal-dim); color:var(--teal); }
+  .ind-chip input{ accent-color:var(--teal); }
+
+  .btn{
+    font-family:'IBM Plex Mono', monospace; font-size:13px; letter-spacing:0.03em;
+    padding:11px 22px; border-radius:3px; border:1px solid var(--amber); background:var(--amber-dim);
+    color:var(--amber); cursor:pointer; transition:all 0.15s;
+  }
+  .btn:hover{ background:var(--amber); color:var(--ink); }
+  .btn:disabled{ opacity:0.4; cursor:not-allowed; }
+  .btn.secondary{ border-color:var(--panel-line); background:transparent; color:var(--muted); }
+  .btn.secondary:hover{ border-color:var(--muted); color:var(--paper); background:transparent; }
+
+  .action-row{ display:flex; gap:10px; align-items:center; margin-top:16px; flex-wrap:wrap; }
+  .selected-count{ font-family:'IBM Plex Mono', monospace; font-size:12px; color:var(--muted); }
+
+  .result-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:14px; margin-top:14px; }
+  .result-panel{ border:1px solid var(--panel-line); border-radius:4px; padding:16px; background:var(--panel-raised); }
+  .result-panel h3{ font-family:'IBM Plex Mono', monospace; font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); margin-bottom:12px; }
+  .metric{ display:flex; justify-content:space-between; padding:5px 0; font-size:13px; border-bottom:1px solid var(--panel-line); }
+  .metric:last-child{ border-bottom:none; }
+  .metric b{ font-family:'IBM Plex Mono', monospace; color:var(--paper); }
+  .verdict{
+    margin-top:14px; padding:10px 12px; border-radius:3px; font-size:13px; font-family:'IBM Plex Mono', monospace;
+  }
+  .verdict.good{ background:var(--teal-dim); color:var(--teal); border:1px solid rgba(79,166,149,0.4); }
+  .verdict.warn{ background:var(--red-dim); color:var(--red); border:1px solid rgba(181,98,75,0.4); }
+
+  table.opt-results{ width:100%; border-collapse:collapse; font-family:'IBM Plex Mono', monospace; font-size:12px; margin-top:10px; }
+  table.opt-results th{ text-align:left; color:var(--muted); font-size:10px; text-transform:uppercase; letter-spacing:0.06em; padding:8px; border-bottom:1px solid var(--panel-line); }
+  table.opt-results td{ padding:8px; border-bottom:1px solid var(--panel-line); color:var(--paper); }
+  table.opt-results tr:hover td{ background:var(--panel); }
+
+  .empty-note{ color:var(--muted); font-size:13px; font-style:italic; padding:20px 0; text-align:center; }
+  .loading{ color:var(--amber); font-family:'IBM Plex Mono', monospace; font-size:13px; }
+  .error-box{ background:var(--red-dim); border:1px solid rgba(181,98,75,0.4); color:var(--red); padding:12px; border-radius:3px; font-size:13px; margin-top:12px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Algo Backtesting Scanner</h1>
+  <div id="apiStatus"><span class="status-dot bad"></span>API से जुड़ रहा है...</div>
+</header>
+
+<main>
+
+  <div class="card">
+    <h2>1 · Symbol और Backtest Settings</h2>
+    <div class="controls-grid">
+      <div>
+        <label>Instrument</label>
+        <select id="symbolSelect"><option>लोड हो रहा है...</option></select>
+      </div>
+      <div>
+        <label>Timeframe</label>
+        <select id="timeframeSelect"></select>
+      </div>
+      <div>
+        <label>Target %</label>
+        <input type="number" id="targetPct" value="1.0" step="0.1">
+      </div>
+      <div>
+        <label>Stoploss %</label>
+        <input type="number" id="slPct" value="0.5" step="0.1">
+      </div>
+      <div>
+        <label>Max Hold Bars</label>
+        <input type="number" id="maxHold" value="20" step="1">
+      </div>
+      <div>
+        <label>Train/Test Split</label>
+        <input type="date" id="splitDate" value="2023-12-31">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>2 · Indicators टॉगल करो (<span id="indicatorCount">0</span> उपलब्ध)</h2>
+    <input class="indicator-search" type="text" id="indicatorSearch" placeholder="इंडिकेटर खोजो... जैसे RSI, MACD" style="width:100%; background:var(--panel-raised); border:1px solid var(--panel-line); color:var(--paper); padding:9px 10px; border-radius:3px; font-family:'IBM Plex Mono', monospace; font-size:13px;">
+    <div class="indicator-grid" id="indicatorGrid"></div>
+    <div class="action-row">
+      <button class="btn" id="runBtn">Run Backtest</button>
+      <button class="btn secondary" id="clearBtn">सब हटाओ</button>
+      <span class="selected-count" id="selectedCount">0 चुने गए</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>3 · Result</h2>
+    <div id="resultArea"><div class="empty-note">Indicators चुनकर "Run Backtest" दबाओ — यहाँ Train/Test win-rate, target/SL hit%, drawdown लाइव दिखेगा।</div></div>
+  </div>
+
+  <div class="card">
+    <h2>4 · Auto-Optimizer</h2>
+    <p style="color:var(--muted); font-size:13px; margin-bottom:14px;">खुद अच्छे indicator-combo ढूंढता है — walk-forward validation से overfit वाले combo अपने-आप बाहर हो जाते हैं।</p>
+    <div class="action-row">
+      <select id="optMode" style="width:auto;">
+        <option value="genetic">Genetic Search (सारे 50 indicators)</option>
+        <option value="grid">Grid Search (छोटा pool, तेज़)</option>
+      </select>
+      <button class="btn" id="optimizeBtn">Optimizer चलाओ</button>
+    </div>
+    <div id="optResultArea"></div>
+  </div>
+
+</main>
+
+<script>
+  const API = "";  // same-origin — api_server.py इसी host से dashboard.html भी serve करता है
+  let allIndicators = [];
+  let selectedIndicators = new Set();
+
+  async function apiGet(path){
+    const res = await fetch(API + path);
+    if(!res.ok) throw new Error(`${path} -> ${res.status}`);
+    return res.json();
+  }
+  async function apiPost(path, body){
+    const res = await fetch(API + path, {
+      method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.detail || `${path} -> ${res.status}`);
+    return data;
+  }
+
+  async function checkHealth(){
+    const dot = document.querySelector('#apiStatus .status-dot');
+    const label = document.getElementById('apiStatus');
+    try{
+      const h = await apiGet('/api/health');
+      dot.className = 'status-dot ok';
+      label.innerHTML = `<span class="status-dot ok"></span>API जुड़ा है · ${h.indicators} indicators रजिस्टर्ड`;
+    }catch(e){
+      dot.className = 'status-dot bad';
+      label.innerHTML = `<span class="status-dot bad"></span>API से कनेक्ट नहीं हो पाया — api_server.py चल रहा है?`;
+    }
+  }
+
+  async function loadUniverse(){
+    try{
+      const rows = await apiGet('/api/universe');
+      const sel = document.getElementById('symbolSelect');
+      sel.innerHTML = rows.map(r => `<option value="${r.symbol}">${r.symbol} (${r.type})</option>`).join('');
+    }catch(e){
+      document.getElementById('symbolSelect').innerHTML = '<option>universe.csv लोड नहीं हुई</option>';
+    }
+  }
+
+  async function loadTimeframes(){
+    try{
+      const tf = await apiGet('/api/timeframes');
+      const sel = document.getElementById('timeframeSelect');
+      sel.innerHTML = tf.timeframes.map(t => `<option value="${t}" ${t===tf.default?'selected':''}>${t}</option>`).join('');
+    }catch(e){}
+  }
+
+  async function loadIndicators(){
+    try{
+      const data = await apiGet('/api/indicators');
+      allIndicators = data.indicators;
+      document.getElementById('indicatorCount').textContent = data.count;
+      renderIndicatorGrid(allIndicators);
+    }catch(e){
+      document.getElementById('indicatorGrid').innerHTML = '<div class="empty-note">indicators.py से list नहीं मिली</div>';
+    }
+  }
+
+  function renderIndicatorGrid(list){
+    const grid = document.getElementById('indicatorGrid');
+    grid.innerHTML = list.map(ind => `
+      <label class="ind-chip ${selectedIndicators.has(ind.name)?'active':''}" data-name="${ind.name}">
+        <input type="checkbox" ${selectedIndicators.has(ind.name)?'checked':''}>
+        ${ind.name}
+      </label>`).join('');
+    grid.querySelectorAll('.ind-chip').forEach(chip => {
+      chip.addEventListener('click', (e) => {
+        e.preventDefault();
+        const name = chip.dataset.name;
+        const cb = chip.querySelector('input');
+        if(selectedIndicators.has(name)){ selectedIndicators.delete(name); cb.checked = false; chip.classList.remove('active'); }
+        else{ selectedIndicators.add(name); cb.checked = true; chip.classList.add('active'); }
+        document.getElementById('selectedCount').textContent = `${selectedIndicators.size} चुने गए`;
+      });
+    });
+  }
+
+  document.getElementById('indicatorSearch').addEventListener('input', (e) => {
+    const q = e.target.value.trim().toLowerCase();
+    renderIndicatorGrid(allIndicators.filter(i => i.name.toLowerCase().includes(q)));
+  });
+
+  document.getElementById('clearBtn').addEventListener('click', () => {
+    selectedIndicators.clear();
+    document.getElementById('selectedCount').textContent = '0 चुने गए';
+    renderIndicatorGrid(allIndicators);
+  });
+
+  function renderResult(res){
+    const gap = res.overfit_gap_win_rate_pts;
+    const verdictClass = res.verdict.includes('⚠️') ? 'warn' : 'good';
+    document.getElementById('resultArea').innerHTML = `
+      <div class="result-grid">
+        <div class="result-panel">
+          <h3>Train (${res.train.period === 'train' ? 'पुराना data' : ''})</h3>
+          ${renderMetrics(res.train)}
+        </div>
+        <div class="result-panel">
+          <h3>Test (नया / असली भरोसे वाला)</h3>
+          ${renderMetrics(res.test)}
+        </div>
+      </div>
+      <div class="verdict ${verdictClass}">${res.verdict} — overfit gap: ${gap} pts (train winrate − test winrate)</div>
+    `;
+  }
+  function renderMetrics(m){
+    return `
+      <div class="metric"><span>Trades</span><b>${m.trades}</b></div>
+      <div class="metric"><span>Win Rate</span><b>${m['win_rate_%']}%</b></div>
+      <div class="metric"><span>Target Hit</span><b>${m['target_hit_%']}%</b></div>
+      <div class="metric"><span>SL Hit</span><b>${m['sl_hit_%']}%</b></div>
+      <div class="metric"><span>Avg Return</span><b>${m['avg_return_%']}%</b></div>
+      <div class="metric"><span>Max Drawdown</span><b>${m['max_drawdown_%']}%</b></div>
+    `;
+  }
+
+  document.getElementById('runBtn').addEventListener('click', async () => {
+    if(selectedIndicators.size === 0){
+      document.getElementById('resultArea').innerHTML = '<div class="error-box">कम-से-कम एक indicator चुनो</div>';
+      return;
+    }
+    document.getElementById('resultArea').innerHTML = '<div class="loading">चल रहा है...</div>';
+    try{
+      const res = await apiPost('/api/backtest', {
+        symbol: document.getElementById('symbolSelect').value,
+        timeframe: document.getElementById('timeframeSelect').value,
+        toggled_indicators: Array.from(selectedIndicators),
+        target_pct: parseFloat(document.getElementById('targetPct').value),
+        sl_pct: parseFloat(document.getElementById('slPct').value),
+        max_hold_bars: parseInt(document.getElementById('maxHold').value),
+        split_date: document.getElementById('splitDate').value,
+      });
+      renderResult(res);
+    }catch(e){
+      document.getElementById('resultArea').innerHTML = `<div class="error-box">${e.message}</div>`;
+    }
+  });
+
+  document.getElementById('optimizeBtn').addEventListener('click', async () => {
+    const area = document.getElementById('optResultArea');
+    area.innerHTML = '<div class="loading">Optimizer चल रहा है — genetic search में थोड़ा वक्त लगेगा...</div>';
+    try{
+      const res = await apiPost('/api/optimize', {
+        symbol: document.getElementById('symbolSelect').value,
+        timeframe: document.getElementById('timeframeSelect').value,
+        mode: document.getElementById('optMode').value,
+        top_n: 10,
+      });
+      if(res.results.length === 0){
+        area.innerHTML = '<div class="empty-note">कोई भरोसेमंद combo नहीं मिला — data कम है या सारे combo overfit जैसे लगे</div>';
+        return;
+      }
+      area.innerHTML = `
+        <table class="opt-results">
+          <thead><tr><th>#</th><th>Rule Combo</th><th>Win Rate</th><th>Score</th><th>Overfit Gap</th><th>Trades</th></tr></thead>
+          <tbody>
+            ${res.results.map((r,i) => `
+              <tr>
+                <td>${i+1}</td>
+                <td>${r.rules_label}</td>
+                <td>${r['mean_win_rate_%']}%</td>
+                <td>${r.score}</td>
+                <td>${r.overfit_gap_pts}pts</td>
+                <td>${r.total_trades}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>`;
+    }catch(e){
+      area.innerHTML = `<div class="error-box">${e.message}</div>`;
+    }
+  });
+
+  // ---- init ----
+  checkHealth();
+  loadUniverse();
+  loadTimeframes();
+  loadIndicators();
+</script>
+
+</body>
+</html>
