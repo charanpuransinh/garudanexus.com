@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Command Deck</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#07080d; --gold:#ffd166; --teal:#00f5c4; --violet:#a855f7;
+    --text:#f5f7fb; --dim:#8b93a3; --faint:#3e4252;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0; height:100%; overflow:hidden; background:var(--bg); color:var(--text); font-family:'Rajdhani',sans-serif;}
+
+  .topbar{
+    position:fixed; top:0; left:0; right:0; height:64px; z-index:10;
+    display:flex; align-items:center; justify-content:center; gap:10px;
+    background:
+      linear-gradient(180deg, rgba(10,11,18,.97) 0%, rgba(10,11,18,.90) 100%);
+    backdrop-filter:blur(8px);
+    border-bottom:none;
+  }
+  .topbar::after{
+    content:''; position:absolute; left:0; right:0; bottom:0; height:2px;
+    background:linear-gradient(90deg, var(--gold), var(--teal), var(--violet), var(--gold));
+    background-size:200% 100%;
+    animation:shimmer 5s linear infinite;
+  }
+  @keyframes shimmer{ 0%{background-position:0% 0;} 100%{background-position:200% 0;} }
+
+  .trident-mark{
+    font-size:22px; line-height:1;
+    filter:drop-shadow(0 0 10px rgba(0,245,196,.65));
+    animation:tridentPulse 2.6s ease-in-out infinite;
+  }
+  @keyframes tridentPulse{
+    0%,100%{ filter:drop-shadow(0 0 8px rgba(0,245,196,.5)); transform:scale(1) rotate(0deg); }
+    50%{ filter:drop-shadow(0 0 18px rgba(0,245,196,.9)) drop-shadow(0 0 8px rgba(255,209,102,.6)); transform:scale(1.08) rotate(-2deg); }
+  }
+
+  .topbar .name{
+    font-size:18px; font-weight:700; letter-spacing:.02em;
+    background:linear-gradient(90deg, var(--gold), var(--teal));
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  .dots{position:absolute; left:50%; transform:translateX(-50%); bottom:10px; display:flex; gap:6px;}
+  .dot{width:6px; height:6px; border-radius:50%; background:var(--faint); transition:background .2s ease, width .2s ease, box-shadow .2s ease;}
+  .dot.active{background:var(--teal); width:18px; border-radius:3px; box-shadow:0 0 8px rgba(0,245,196,.7);}
+
+  .swipe-hint{
+    position:fixed; top:68px; left:0; right:0; z-index:9; text-align:center;
+    font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.14em;
+    color:var(--faint); text-transform:uppercase; padding:4px 0; pointer-events:none;
+  }
+
+  .rail{
+    height:100%; display:flex; overflow-x:auto; overflow-y:hidden;
+    scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
+  }
+  .rail::-webkit-scrollbar{display:none;}
+  .page{
+    flex:0 0 100vw; height:100%; scroll-snap-align:start;
+    padding-top:64px; position:relative;
+  }
+  .page iframe{width:100%; height:100%; border:0; display:block; background:#0d0f17;}
+
+  .page-empty{
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    height:calc(100% - 64px); gap:10px; color:var(--faint); text-align:center; padding:0 30px;
+  }
+  .page-empty .icon{font-size:34px; border:2px dashed var(--faint); border-radius:20px; width:74px; height:74px; display:flex; align-items:center; justify-content:center;}
+  .page-empty .txt{font-size:13.5px; font-family:'JetBrains Mono',monospace; letter-spacing:.04em;}
+  @media (prefers-reduced-motion: reduce){ *{animation:none !important; transition:none !important;} }
+</style>
+</head>
+<body>
+
+  <div class="topbar">
+    <span class="trident-mark">🔱</span>
+    <span class="name" id="appName">🦅 Garuda Tracker</span>
+    <div class="dots" id="dots"></div>
+  </div>
+  <div class="swipe-hint" id="swipeHint">◂ स्वाइप करो ▸</div>
+
+  <div class="rail" id="rail">
+    <div class="page" data-name="🦅 Garuda Tracker"><iframe src="garuda_power_tracker.html" loading="lazy"></iframe></div>
+    <div class="page" data-name="🔐 Vault"><iframe src="vault.html" loading="lazy"></iframe></div>
+    <div class="page" data-name="🔱 श्री हिसाब बही"><iframe src="hisab-khata.html" loading="lazy"></iframe></div>
+    <div class="page" data-name="📊 Backtesting Scanner"><iframe src="../trading-bot/dashboard.html" loading="lazy"></iframe></div>
+  </div>
+
+<script>
+  const rail = document.getElementById('rail');
+  const pages = Array.from(rail.querySelectorAll('.page'));
+  const appName = document.getElementById('appName');
+  const dotsWrap = document.getElementById('dots');
+  const hint = document.getElementById('swipeHint');
+
+  pages.forEach((p,i)=>{
+    const d = document.createElement('div');
+    d.className = 'dot' + (i===0?' active':'');
+    d.addEventListener('click', ()=> rail.scrollTo({left: i*window.innerWidth, behavior:'smooth'}));
+    dotsWrap.appendChild(d);
+  });
+  const dots = Array.from(dotsWrap.children);
+
+  let hideTimer = setTimeout(()=>{ hint.style.opacity='0'; hint.style.transition='opacity .6s ease'; }, 2500);
+
+  let ticking = false;
+  rail.addEventListener('scroll', ()=>{
+    if(ticking) return;
+    ticking = true;
+    requestAnimationFrame(()=>{
+      const idx = Math.round(rail.scrollLeft / window.innerWidth);
+      dots.forEach((d,i)=> d.classList.toggle('active', i===idx));
+      if(pages[idx]) appName.textContent = pages[idx].getAttribute('data-name');
+      ticking = false;
+    });
+  });
+</script>
+</body>
+</html>
