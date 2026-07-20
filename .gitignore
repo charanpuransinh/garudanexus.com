@@ -1,0 +1,4 @@
+trading-bot/venv/
+trading-bot/data/
+trading-bot/results/
+**/__pycache__/
