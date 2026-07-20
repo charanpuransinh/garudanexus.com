@@ -222,15 +222,20 @@ class GarudaValidator:
         bt_score = bt.get("score", 0) if bt.get("status") not in ("SKIP", "ERROR") else None
 
         has_critical = any(b["severity"] == "CRITICAL" for b in l1["bugs"])
+        bt_failed = bt.get("status") == "FAIL"
         if bt_score is not None:
             has_critical = has_critical or any(b["severity"] == "CRITICAL" for b in bt.get("bugs", []))
             final_score = round(code_score * 0.3 + bt_score * 0.7, 1)
         else:
             final_score = code_score
 
+        # bt_failed यहाँ ज़रूरी है: L2 अलग से FAIL हो चुका हो (जैसे 0 trades — तब overfit_gap भी 0
+        # और drawdown भी 0% दिखेगा, जो weighted-average score को गलती से ऊपर खींच सकता है) तो सिर्फ
+        # weighted final_score पर भरोसा करके APPROVED नहीं देना — L2 का असली FAIL verdict को override
+        # करने देना गलत होगा (एक strategy जो कभी trade ही नहीं लेती उसे APPROVE नहीं करना चाहिए)।
         if has_critical or final_score < 40:
             verdict = "🔴 REJECTED"
-        elif final_score < 60:
+        elif final_score < 60 or bt_failed:
             verdict = "🟡 CONDITIONAL"
         elif final_score < 80:
             verdict = "🟢 APPROVED"
