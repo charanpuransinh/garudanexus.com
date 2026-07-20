@@ -56,6 +56,11 @@ def fetch_ohlcv(symbol: str, yf_symbol: str, timeframe: str, start: str, end: st
     df = yf.download(yf_symbol, start=start, end=end, interval=interval, progress=False)
     if df.empty:
         return df
+    if isinstance(df.columns, pd.MultiIndex):
+        # नई yfinance versions single ticker पर भी (Price, Ticker) MultiIndex देती हैं —
+        # flatten ना करें तो df["close"] जैसी हर जगह Series की जगह DataFrame मिलता है
+        # और पूरी indicator pipeline चुपचाप टूट जाती है।
+        df.columns = df.columns.get_level_values(0)
     df = df.rename(columns=str.lower)[["open", "high", "low", "close", "volume"]]
     df.index.name = "datetime"
     return df
