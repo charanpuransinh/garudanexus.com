@@ -36,6 +36,15 @@ jobs:
             flutter create --platforms=android --org com.garudanexus .
           fi
 
+      # flutter create (Flutter 3.24.0 template) scaffolds Kotlin Gradle
+      # plugin 1.7.10, but webview_flutter_android's compiled classes need
+      # a Kotlin compiler that understands 1.9.x metadata -> build fails
+      # with "Class 'kotlin.Unit' was compiled with an incompatible version
+      # of Kotlin". Verified locally 2026-07-22. Bumping here since
+      # android/ is regenerated fresh every run, never committed.
+      - name: Fix Kotlin Gradle plugin version
+        run: sed -i 's/org.jetbrains.kotlin.android" version "1.7.10"/org.jetbrains.kotlin.android" version "1.9.24"/' android/settings.gradle
+
       - name: Install dependencies
         run: flutter pub get
 
