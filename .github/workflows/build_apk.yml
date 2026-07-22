@@ -1,0 +1,52 @@
+name: Build Trading Bot APK
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'trading-bot/flutter_app/**'
+      - '.github/workflows/build_apk.yml'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: trading-bot/flutter_app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+          channel: stable
+
+      # Only lib/ and pubspec.yaml are checked into the repo — the
+      # android/ platform folder is scaffolded fresh on the runner (never
+      # on our own server, per instruction). Safe to re-run: flutter
+      # create skips files that already exist, so this only fills in
+      # android/ the first time.
+      - name: Scaffold Android platform folder
+        run: |
+          if [ ! -d "android" ]; then
+            flutter create --platforms=android --org com.garudanexus .
+          fi
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build release APK
+        run: flutter build apk --release
+
+      - name: Upload APK to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-build-${{ github.run_number }}
+          name: Trading Bot APK build ${{ github.run_number }}
+          files: trading-bot/flutter_app/build/app/outputs/flutter-apk/app-release.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
