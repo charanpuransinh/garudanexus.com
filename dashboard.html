@@ -96,6 +96,17 @@
   }
   .verdict.good{ background:var(--teal-dim); color:var(--teal); border:1px solid rgba(79,166,149,0.4); }
   .verdict.warn{ background:var(--red-dim); color:var(--red); border:1px solid rgba(181,98,75,0.4); }
+  /* Garuda verdict (2026-07-22) — CONDITIONAL sits between good/warn, amber
+     to match the app's existing warn/accent color instead of adding a new one. */
+  .verdict.mid{ background:var(--amber-dim); color:var(--amber); border:1px solid rgba(201,154,75,0.4); }
+  .garuda-box{ margin-top:14px; }
+  .garuda-box .verdict{ margin-top:8px; display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .garuda-bugs{ margin-top:8px; font-size:12px; color:var(--muted); }
+  .garuda-bugs .bug{ padding:6px 0; border-bottom:1px solid var(--panel-line); }
+  .garuda-bugs .bug:last-child{ border-bottom:none; }
+  .garuda-bugs .bug b{ color:var(--paper-dim); }
+  .garuda-bugs .sev-CRITICAL b{ color:var(--red); }
+  .garuda-bugs .sev-HIGH b{ color:var(--amber); }
 
   table.opt-results{ width:100%; border-collapse:collapse; font-family:'IBM Plex Mono', monospace; font-size:12px; margin-top:10px; }
   table.opt-results th{ text-align:left; color:var(--muted); font-size:10px; text-transform:uppercase; letter-spacing:0.06em; padding:8px; border-bottom:1px solid var(--panel-line); }
@@ -539,6 +550,40 @@
     `;
   }
 
+  function garudaVerdictClass(verdict){
+    if(verdict.includes('REJECTED')) return 'warn';
+    if(verdict.includes('CONDITIONAL')) return 'mid';
+    return 'good';   // APPROVED / EXCELLENT
+  }
+
+  // Custom Strategy tab only — /api/backtest (main scanner) doesn't run the
+  // Garuda validator, so res.garuda_verdict is simply absent there and this
+  // renders nothing extra (renderResultInto stays shared, unchanged for it).
+  function renderGarudaBlock(gv){
+    if(!gv) return '';
+    if(gv.error || gv.verdict === 'N/A'){
+      return `<div class="garuda-box"><div class="verdict warn">🔱 Garuda Validator: चल नहीं पाया — ${gv.error || 'unknown error'}</div></div>`;
+    }
+    const allBugs = [
+      ...(gv.code_check?.bugs || []).map(b => ({...b, from: 'Code'})),
+      ...(gv.backtest_check?.bugs || []).map(b => ({...b, from: 'Backtest'})),
+    ];
+    const bugsHtml = allBugs.length ? `
+      <div class="garuda-bugs">
+        ${allBugs.map(b => `
+          <div class="bug sev-${b.severity}"><b>[${b.severity} · ${b.from}]</b> ${b.issue} — ${b.detail}</div>
+        `).join('')}
+      </div>` : '';
+    return `
+      <div class="garuda-box">
+        <div class="verdict ${garudaVerdictClass(gv.verdict)}">
+          <span>🔱 Garuda Validator: ${gv.verdict}</span>
+          <span>Score: ${gv.final_score}/100</span>
+        </div>
+        ${bugsHtml}
+      </div>`;
+  }
+
   function renderResultInto(targetId, res){
     const gap = res.overfit_gap_win_rate_pts;
     const verdictClass = res.verdict.includes('⚠️') ? 'warn' : 'good';
@@ -554,6 +599,7 @@
         </div>
       </div>
       <div class="verdict ${verdictClass}">${res.verdict} — overfit gap: ${gap} pts (train winrate − test winrate)</div>
+      ${renderGarudaBlock(res.garuda_verdict)}
     `;
   }
 

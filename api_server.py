@@ -31,6 +31,9 @@ import rule_builder as rb
 import self_healing
 import strategy_sandbox as sandbox
 from backtest_core import run_train_test
+from garuda_validator import GarudaValidator
+
+_garuda_validator = GarudaValidator()
 
 app = FastAPI(title="Trishul Backtesting Scanner API", version="1.0")
 
@@ -254,6 +257,13 @@ def custom_backtest(req: CustomBacktestRequest):
         df, signal, split_date=req.split_date,
         target_pct=req.target_pct, sl_pct=req.sl_pct, max_hold_bars=req.max_hold_bars,
     )
+    # Garuda verdict — best-effort (2026-07-22): reuses the train_test result
+    # above instead of re-running the backtest. Never lets a validator bug
+    # take down an otherwise-working custom backtest response.
+    try:
+        result["garuda_verdict"] = _garuda_validator.validate_custom(req.code, result)
+    except Exception as e:
+        result["garuda_verdict"] = {"final_score": None, "verdict": "N/A", "error": str(e)}
     return result
 
 

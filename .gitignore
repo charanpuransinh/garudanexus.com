@@ -2,3 +2,11 @@ trading-bot/venv/
 trading-bot/data/
 trading-bot/results/
 **/__pycache__/
+
+# Repo restructured 2026-07-22 — .py files moved to root, but data/venv/
+# results/ stay where they physically are (trading-bot/) and are also
+# regenerable/re-copyable, not source. Root-level data/ is a copy used by
+# the currently-configured DATA_DIR (config.py resolves relative to its own
+# location, now root) — same reason as the old trading-bot/data/ entry above.
+data/
+results/

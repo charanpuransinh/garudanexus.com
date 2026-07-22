@@ -34,8 +34,13 @@ class GarudaValidator:
         self.results_dir.mkdir(parents=True, exist_ok=True)
 
     # ---------------------------------------------------------- L1: code check
-    def check_code(self, strategy_func) -> dict:
-        source = inspect.getsource(strategy_func)
+    def check_code(self, strategy_func_or_source) -> dict:
+        # Dashboard's Custom Strategy box passes the pasted source directly
+        # (a str) — there's no importable function object for sandboxed
+        # user code to run inspect.getsource() on. Registered strategies
+        # (my_strategies.py, via validate()) still pass the function itself.
+        source = strategy_func_or_source if isinstance(strategy_func_or_source, str) \
+            else inspect.getsource(strategy_func_or_source)
         bugs = []
         score = 100
 
@@ -95,7 +100,12 @@ class GarudaValidator:
             )
         except Exception as e:
             return {"status": "ERROR", "error": str(e)}
+        return self.score_backtest_result(result)
 
+    def score_backtest_result(self, result: dict) -> dict:
+        """L2 की scoring logic — check_backtest() से निकाला (2026-07-22) ताकि Custom
+        Strategy box का पहले से चला हुआ run_train_test() result (api_server.py का
+        /api/custom_backtest) दोबारा backtest चलाए बिना यहीं स्कोर हो सके।"""
         train = result["train"]
         test = result["test"]
         overfit_gap = result["overfit_gap_win_rate_pts"]
@@ -165,6 +175,45 @@ class GarudaValidator:
             "test": test,
             "overfit_gap_pts": overfit_gap,
             "bugs": bugs,
+        }
+
+    # ---------------------------------------------------------- combined (custom/pasted code)
+    def validate_custom(self, source: str, backtest_result: dict) -> dict:
+        """validate() का हल्का version — dashboard के Custom Strategy box के लिए
+        (2026-07-22)। backtest_result वही dict है जो /api/custom_backtest पहले ही
+        run_train_test() से बना चुका है, इसलिए backtest दोबारा नहीं चलाना पड़ता। कोई
+        JSON report डिस्क पर नहीं लिखता — validate()/validate_all() named/registered
+        strategies के लिए हैं, यह हर dashboard क्लिक के लिए अस्थायी check है।"""
+        l1 = self.check_code(source)
+        l2 = self.score_backtest_result(backtest_result)
+
+        has_critical = any(b["severity"] == "CRITICAL" for b in l1["bugs"])
+        bt_failed = l2.get("status") == "FAIL"
+        if l2.get("status") == "ERROR":
+            bt_score = None
+        else:
+            bt_score = l2["score"]
+            has_critical = has_critical or any(b["severity"] == "CRITICAL" for b in l2.get("bugs", []))
+
+        if bt_score is not None:
+            final_score = round(l1["score"] * 0.3 + bt_score * 0.7, 1)
+        else:
+            final_score = l1["score"]
+
+        if has_critical or final_score < 40:
+            verdict = "🔴 REJECTED"
+        elif final_score < 60 or bt_failed:
+            verdict = "🟡 CONDITIONAL"
+        elif final_score < 80:
+            verdict = "🟢 APPROVED"
+        else:
+            verdict = "🟢 EXCELLENT — APPROVED"
+
+        return {
+            "code_check": l1,
+            "backtest_check": l2,
+            "final_score": final_score,
+            "verdict": verdict,
         }
 
     # ---------------------------------------------------------- combined
