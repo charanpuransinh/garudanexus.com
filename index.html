@@ -2,124 +2,402 @@
 <html lang="hi">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>Command Deck</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Algo Backtesting Scanner — Build Ledger</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,72,400;0,72,500;0,72,600;0,72,700;1,72,500&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#07080d; --gold:#ffd166; --teal:#00f5c4; --violet:#a855f7;
-    --text:#f5f7fb; --dim:#8b93a3; --faint:#3e4252;
+    --ink:#0B0F14;
+    --panel:#12181F;
+    --panel-raised:#161D26;
+    --panel-line:#232C36;
+    --paper:#E9E4D8;
+    --paper-dim:#F5F1E7;
+    --amber:#C99A4B;
+    --amber-dim:rgba(201,154,75,0.15);
+    --teal:#4FA695;
+    --teal-dim:rgba(79,166,149,0.15);
+    --red:#B5624B;
+    --red-dim:rgba(181,98,75,0.15);
+    --muted:#8B93A0;
   }
-  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
-  html,body{margin:0; padding:0; height:100%; overflow:hidden; background:var(--bg); color:var(--text); font-family:'Rajdhani',sans-serif;}
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html{ scroll-behavior:smooth; }
+  body{
+    background:var(--ink);
+    color:var(--paper);
+    font-family:'IBM Plex Sans', sans-serif;
+    line-height:1.5;
+  }
+  ::selection{ background:var(--amber); color:var(--ink); }
+  @media (prefers-reduced-motion: reduce){ *{ animation:none !important; transition:none !important; } }
 
-  .topbar{
-    position:fixed; top:0; left:0; right:0; height:64px; z-index:10;
-    display:flex; align-items:center; justify-content:center; gap:10px;
-    background:
-      linear-gradient(180deg, rgba(10,11,18,.97) 0%, rgba(10,11,18,.90) 100%);
-    backdrop-filter:blur(8px);
-    border-bottom:none;
+  /* ---------- Ticker ---------- */
+  .ticker-wrap{
+    border-bottom:1px solid var(--panel-line);
+    background:var(--panel);
+    overflow:hidden;
+    white-space:nowrap;
+    padding:10px 0;
   }
-  .topbar::after{
-    content:''; position:absolute; left:0; right:0; bottom:0; height:2px;
-    background:linear-gradient(90deg, var(--gold), var(--teal), var(--violet), var(--gold));
-    background-size:200% 100%;
-    animation:shimmer 5s linear infinite;
+  .ticker{
+    display:inline-block;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:13px;
+    letter-spacing:0.03em;
+    color:var(--muted);
+    animation:scroll 50s linear infinite;
   }
-  @keyframes shimmer{ 0%{background-position:0% 0;} 100%{background-position:200% 0;} }
-
-  .trident-mark{
-    font-size:22px; line-height:1;
-    filter:drop-shadow(0 0 10px rgba(0,245,196,.65));
-    animation:tridentPulse 2.6s ease-in-out infinite;
-  }
-  @keyframes tridentPulse{
-    0%,100%{ filter:drop-shadow(0 0 8px rgba(0,245,196,.5)); transform:scale(1) rotate(0deg); }
-    50%{ filter:drop-shadow(0 0 18px rgba(0,245,196,.9)) drop-shadow(0 0 8px rgba(255,209,102,.6)); transform:scale(1.08) rotate(-2deg); }
+  .ticker span{ margin-right:36px; }
+  .ticker span.on{ color:var(--teal); }
+  @keyframes scroll{
+    0%{ transform:translateX(0); }
+    100%{ transform:translateX(-50%); }
   }
 
-  .topbar .name{
-    font-size:18px; font-weight:700; letter-spacing:.02em;
-    background:linear-gradient(90deg, var(--gold), var(--teal));
-    -webkit-background-clip:text; background-clip:text; color:transparent;
+  /* ---------- Hero ---------- */
+  header.hero{
+    max-width:960px;
+    margin:0 auto;
+    padding:72px 24px 40px;
+    display:grid;
+    grid-template-columns:1fr;
+    gap:32px;
   }
-  .dots{position:absolute; left:50%; transform:translateX(-50%); bottom:10px; display:flex; gap:6px;}
-  .dot{width:6px; height:6px; border-radius:50%; background:var(--faint); transition:background .2s ease, width .2s ease, box-shadow .2s ease;}
-  .dot.active{background:var(--teal); width:18px; border-radius:3px; box-shadow:0 0 8px rgba(0,245,196,.7);}
+  .eyebrow{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--amber);
+    margin-bottom:18px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .eyebrow::before{
+    content:"";
+    width:6px; height:6px;
+    background:var(--teal);
+    border-radius:50%;
+    box-shadow:0 0 0 3px var(--teal-dim);
+    flex-shrink:0;
+  }
+  h1{
+    font-family:'Newsreader', serif;
+    font-weight:600;
+    font-size:clamp(36px, 5.4vw, 58px);
+    line-height:1.08;
+    max-width:15ch;
+    color:var(--paper-dim);
+    letter-spacing:-0.01em;
+  }
+  h1 em{ font-style:italic; color:var(--amber); font-weight:500; }
+  .lede{
+    font-size:17px;
+    color:var(--muted);
+    max-width:58ch;
+    margin-top:20px;
+  }
 
-  .swipe-hint{
-    position:fixed; top:68px; left:0; right:0; z-index:9; text-align:center;
-    font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:.14em;
-    color:var(--faint); text-transform:uppercase; padding:4px 0; pointer-events:none;
+  /* ---------- Signature: candlestick progress strip ---------- */
+  .candles{
+    display:flex;
+    align-items:flex-end;
+    gap:3px;
+    height:64px;
+    margin-top:8px;
+    border-bottom:1px solid var(--panel-line);
+    padding-bottom:0;
+  }
+  .candle{
+    flex:1;
+    min-width:4px;
+    background:var(--panel-line);
+    border-radius:1px 1px 0 0;
+    position:relative;
+    transition:background 0.3s ease;
+  }
+  .candle.done{ background:var(--teal); }
+  .candle.pending{ background:var(--amber); opacity:0.55; }
+  .candle.blocked{ background:var(--red); opacity:0.45; }
+  .candles-caption{
+    display:flex; justify-content:space-between;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px; color:var(--muted);
+    margin-top:8px; letter-spacing:0.04em;
   }
 
-  .rail{
-    height:100%; display:flex; overflow-x:auto; overflow-y:hidden;
-    scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch;
-    scrollbar-width:none;
+  .stat-row{
+    display:flex;
+    gap:40px;
+    flex-wrap:wrap;
+    padding-top:8px;
+    border-top:1px solid var(--panel-line);
   }
-  .rail::-webkit-scrollbar{display:none;}
-  .page{
-    flex:0 0 100vw; height:100%; scroll-snap-align:start;
-    padding-top:64px; position:relative;
+  .stat{ padding-top:20px; }
+  .stat b{
+    display:block;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:26px;
+    color:var(--paper);
+    font-weight:500;
   }
-  .page iframe{width:100%; height:100%; border:0; display:block; background:#0d0f17;}
+  .stat span{
+    font-size:11px;
+    color:var(--muted);
+    text-transform:uppercase;
+    letter-spacing:0.08em;
+  }
 
-  .page-empty{
-    display:flex; flex-direction:column; align-items:center; justify-content:center;
-    height:calc(100% - 64px); gap:10px; color:var(--faint); text-align:center; padding:0 30px;
+  /* ---------- Sections ---------- */
+  section{ max-width:960px; margin:0 auto; padding:52px 24px; }
+  section h2{
+    font-family:'Newsreader', serif;
+    font-weight:600;
+    font-size:25px;
+    color:var(--paper-dim);
+    margin-bottom:8px;
   }
-  .page-empty .icon{font-size:34px; border:2px dashed var(--faint); border-radius:20px; width:74px; height:74px; display:flex; align-items:center; justify-content:center;}
-  .page-empty .txt{font-size:13.5px; font-family:'JetBrains Mono',monospace; letter-spacing:.04em;}
-  @media (prefers-reduced-motion: reduce){ *{animation:none !important; transition:none !important;} }
+  section .section-note{ color:var(--muted); font-size:14px; margin-bottom:28px; max-width:60ch; }
+
+  /* ---------- Pipeline ---------- */
+  .pipeline{ display:flex; flex-direction:column; }
+  .layer{
+    display:grid;
+    grid-template-columns:44px 1fr;
+    gap:18px;
+    padding:18px 0;
+    border-top:1px solid var(--panel-line);
+    transition:background 0.15s ease;
+  }
+  .layer:last-child{ border-bottom:1px solid var(--panel-line); }
+  .layer:hover{ background:var(--panel-raised); }
+  .layer .num{
+    font-family:'IBM Plex Mono', monospace;
+    color:var(--amber);
+    font-size:13px;
+    padding-top:2px;
+  }
+  .layer h3{ font-size:16px; font-weight:600; color:var(--paper); margin-bottom:4px; }
+  .layer p{ font-size:14px; color:var(--muted); max-width:64ch; }
+
+  /* ---------- Blotter table ---------- */
+  table.blotter{
+    width:100%;
+    border-collapse:collapse;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:13px;
+  }
+  table.blotter th{
+    text-align:left;
+    color:var(--muted);
+    font-weight:500;
+    font-size:11px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    padding:10px 12px;
+    border-bottom:1px solid var(--panel-line);
+  }
+  table.blotter td{
+    padding:12px;
+    border-bottom:1px solid var(--panel-line);
+    color:var(--paper);
+    vertical-align:top;
+  }
+  table.blotter tr:hover td{ background:var(--panel-raised); }
+  .tag{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    padding:2px 8px;
+    border-radius:2px;
+    font-size:11px;
+    letter-spacing:0.04em;
+  }
+  .tag::before{ content:""; width:5px; height:5px; border-radius:50%; }
+  .tag.done{ background:var(--teal-dim); color:var(--teal); border:1px solid rgba(79,166,149,0.4); }
+  .tag.done::before{ background:var(--teal); }
+  .tag.pending{ background:var(--amber-dim); color:var(--amber); border:1px solid rgba(201,154,75,0.4); }
+  .tag.pending::before{ background:var(--amber); }
+  .tag.blocked{ background:var(--red-dim); color:var(--red); border:1px solid rgba(181,98,75,0.4); }
+  .tag.blocked::before{ background:var(--red); }
+  .file-name{ color:var(--paper); }
+  .file-desc{ color:var(--muted); font-family:'IBM Plex Sans', sans-serif; font-size:13px; }
+
+  /* ---------- Next-up callout ---------- */
+  .next-up{
+    border:1px solid var(--panel-line);
+    background:var(--panel);
+    border-radius:3px;
+    padding:24px;
+    display:grid;
+    gap:14px;
+  }
+  .next-up .row{
+    display:grid;
+    grid-template-columns:24px 1fr;
+    gap:14px;
+    align-items:start;
+  }
+  .next-up .row .idx{
+    font-family:'IBM Plex Mono', monospace;
+    color:var(--red);
+    font-size:12px;
+    padding-top:1px;
+  }
+  .next-up .row b{ display:block; color:var(--paper); font-size:14px; margin-bottom:2px; }
+  .next-up .row span{ color:var(--muted); font-size:13px; }
+
+  footer{
+    max-width:960px; margin:0 auto; padding:40px 24px 80px;
+    border-top:1px solid var(--panel-line);
+    color:var(--muted);
+    font-size:13px;
+    font-family:'IBM Plex Mono', monospace;
+    display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px;
+  }
+
+  @media (max-width:600px){
+    .stat-row{ gap:24px; }
+    footer{ flex-direction:column; }
+  }
 </style>
 </head>
 <body>
 
-  <div class="topbar">
-    <span class="trident-mark">🔱</span>
-    <span class="name" id="appName">🦅 Garuda Tracker</span>
-    <div class="dots" id="dots"></div>
-  </div>
-  <div class="swipe-hint" id="swipeHint">◂ स्वाइप करो ▸</div>
+<div class="ticker-wrap">
+  <div class="ticker" id="tickerTape"></div>
+</div>
 
-  <div class="rail" id="rail">
-    <div class="page" data-name="🦅 Garuda Tracker"><iframe src="garuda_power_tracker.html" loading="lazy"></iframe></div>
-    <div class="page" data-name="🔐 Vault"><iframe src="vault.html" loading="lazy"></iframe></div>
-    <div class="page" data-name="🔱 श्री हिसाब बही"><iframe src="hisab-khata.html" loading="lazy"></iframe></div>
-    <div class="page" data-name="📊 Backtesting Scanner"><iframe src="../trading-bot/dashboard.html" loading="lazy"></iframe></div>
+<header class="hero">
+  <div>
+    <div class="eyebrow">Build Ledger — 18 Jul 2026</div>
+    <h1>Algo Backtesting <em>Scanner</em></h1>
+    <p class="lede">50 इंडिकेटर, हर टाइमफ्रेम (3-मिनट से 1-हफ्ते तक), Index और Stock दोनों, 2018–2026 का डेटा — एक ही डैशबोर्ड से टॉगल करके तुरंत accuracy देखने के लिए बना सिस्टम। Backend + interactive dashboard + auto-optimizer तीनों अब live हैं — असली data आते ही चलने के लिए तैयार।</p>
   </div>
+
+  <div>
+    <div class="candles" id="candles"></div>
+    <div class="candles-caption">
+      <span id="candlesTotalLabel"></span>
+      <span id="candlesLegend"></span>
+    </div>
+  </div>
+
+  <div class="stat-row">
+    <div class="stat"><b>15 / 16</b><span>फाइलें तैयार</span></div>
+    <div class="stat"><b>50</b><span>इंडिकेटर लाइब्रेरी में</span></div>
+    <div class="stat"><b>2018–26</b><span>बैकटेस्ट रेंज</span></div>
+    <div class="stat"><b>6</b><span>सिस्टम लेयर</span></div>
+  </div>
+</header>
+
+<section>
+  <h2>आर्किटेक्चर</h2>
+  <p class="section-note">डेटा से लेकर डैशबोर्ड तक — छह लेयर, हर एक अलग फाइल में।</p>
+  <div class="pipeline" id="pipeline"></div>
+</section>
+
+<section>
+  <h2>फाइल ब्लॉटर</h2>
+  <p class="section-note">GitHub repo के root में यही फाइलें जाएंगी। स्टेटस लाइव अपडेट होता रहेगा।</p>
+  <table class="blotter">
+    <thead>
+      <tr><th>फाइल</th><th>काम</th><th>स्टेटस</th></tr>
+    </thead>
+    <tbody id="blotterBody"></tbody>
+  </table>
+</section>
+
+<section>
+  <h2>अगला कदम</h2>
+  <p class="section-note">असली interactive dashboard यहीं से शुरू होगा — checkbox टॉगल = live result।</p>
+  <div class="next-up" id="nextUp"></div>
+</section>
+
+<footer>
+  <span>scanner_project · backtest engine verified</span>
+  <span>train/test split @ 2023-12-31</span>
+</footer>
 
 <script>
-  const rail = document.getElementById('rail');
-  const pages = Array.from(rail.querySelectorAll('.page'));
-  const appName = document.getElementById('appName');
-  const dotsWrap = document.getElementById('dots');
-  const hint = document.getElementById('swipeHint');
+  const indicators = ["SMA","EMA","WMA","DEMA","TEMA","VWAP","HullMA","RSI","Stochastic","StochRSI",
+  "MACD","CCI","WilliamsR","MFI","ROC","Momentum","TSI","UltimateOscillator","ADX","AroonUp",
+  "AroonDown","DMI","ParabolicSAR","SupertrendInd","BollingerBands","KeltnerChannel","DonchianChannel",
+  "ATR","StdDev","OBV","VolumeSMA","VolumeSpike","CMF","ADLine","ForceIndex","PivotPoints",
+  "FibonacciRetrace","Ichimoku","HeikinAshiTrend","PSARFlip","TRIX","Vortex","ElderRay","ChaikinOsc",
+  "PriceChannel","RelativeVolume","GapPercent","CandleBodyRatio","HigherHighLowerLow","MarketProfile"];
 
-  pages.forEach((p,i)=>{
-    const d = document.createElement('div');
-    d.className = 'dot' + (i===0?' active':'');
-    d.addEventListener('click', ()=> rail.scrollTo({left: i*window.innerWidth, behavior:'smooth'}));
-    dotsWrap.appendChild(d);
-  });
-  const dots = Array.from(dotsWrap.children);
+  const doneSet = new Set(["RSI","MACD","BollingerBands","SupertrendInd","ADX","VWAP"]);
+  const tapeHtml = indicators.map(n => `<span class="${doneSet.has(n)?'on':''}">${n}</span>`).join("");
+  document.getElementById('tickerTape').innerHTML = tapeHtml + tapeHtml;
 
-  let hideTimer = setTimeout(()=>{ hint.style.opacity='0'; hint.style.transition='opacity .6s ease'; }, 2500);
+  const layers = [
+    ["01","Data Layer","OHLCV + Options data, Parquet/DuckDB में स्टोर, एक बार लोड — हमेशा वहीं से query।"],
+    ["02","Indicator Library","50 indicators, हर एक standalone function, parameters adjustable।"],
+    ["03","Strategy Layer","मैनुअल logic (तुम्हारा) + UI से बने combinations — दोनों एक ही फॉर्मेट में।"],
+    ["04","Backtest Engine","Train/Test split के साथ — Win rate, Target/SL hit %, Drawdown निकालता है।"],
+    ["05","Optimizer","Grid/Genetic search, walk-forward validation — overfitting से बचाने के लिए।"],
+    ["06","Dashboard","Checkbox grid, timeframe dropdown, Stock/Index toggle, year slider, result panel।"],
+  ];
+  document.getElementById('pipeline').innerHTML = layers.map(([n,t,p]) => `
+    <div class="layer">
+      <div class="num">${n}</div>
+      <div><h3>${t}</h3><p>${p}</p></div>
+    </div>`).join("");
 
-  let ticking = false;
-  rail.addEventListener('scroll', ()=>{
-    if(ticking) return;
-    ticking = true;
-    requestAnimationFrame(()=>{
-      const idx = Math.round(rail.scrollLeft / window.innerWidth);
-      dots.forEach((d,i)=> d.classList.toggle('active', i===idx));
-      if(pages[idx]) appName.textContent = pages[idx].getAttribute('data-name');
-      ticking = false;
-    });
-  });
+  const files = [
+    ["PROJECT_BLUEPRINT.md","पूरा प्लान और आर्किटेक्चर नोट","done"],
+    ["config.py","Timeframe, date range, symbol settings","done"],
+    ["indicators.py","50 इंडिकेटर लाइब्रेरी — टेस्ट पास","done"],
+    ["requirements.txt","Python dependencies","done"],
+    ["universe.csv","Index/Stock symbol list (sample)","done"],
+    ["backtest_core.py","Backtest engine, train/test split — synthetic data पर टेस्ट पास","done"],
+    ["my_strategies.py","3 example manual strategies + तुम्हारी अपनी जोड़ने की जगह","done"],
+    ["rule_builder.py","UI combinations से strategy बनाना — AND/OR groups सपोर्ट","done"],
+    ["data_fetcher.py","OHLCV downloader (yfinance) — intraday history सीमित, broker API hook तैयार","done"],
+    ["run_demo.py","बिना data/internet पूरा pipeline verify करने वाला smoke test","done"],
+    ["optimizer.py","Auto grid/genetic search — walk-forward scoring, overfit-penalty — टेस्ट पास","done"],
+    ["api_server.py","FastAPI backend — /api/backtest, /api/optimize लाइव endpoints","done"],
+    ["dashboard.html","Interactive checkbox grid + live result panel + optimizer panel","done"],
+    ["broker_adapter.py","Fyers/Dhan data-feed hooks (Shoonya=execution-only, Kotak=pending) — env-var configured","done"],
+    ["news_fetcher.py","Free RSS market news + Gemini sentiment hook (main backend gemini_client से जुड़ने के लिए तैयार)","done"],
+    ["options_data_fetcher.py","Options historical data — data source चाहिए","blocked"],
+  ];
+  const statusLabel = {done:"तैयार", pending:"बाकी", blocked:"डेटा-सोर्स चाहिए"};
+  document.getElementById('blotterBody').innerHTML = files.map(([f,d,s]) => `
+    <tr>
+      <td class="file-name">${f}</td>
+      <td class="file-desc">${d}</td>
+      <td><span class="tag ${s}">${statusLabel[s]}</span></td>
+    </tr>`).join("");
+
+  // ---- candlestick progress strip: each file = one candle, height by "weight" ----
+  const weights = files.map(f => 30 + Math.random()*34); // visual variety, deterministic look not required
+  document.getElementById('candles').innerHTML = files.map(([f,d,s], i) =>
+    `<div class="candle ${s}" style="height:${weights[i].toFixed(0)}px" title="${f}"></div>`
+  ).join("");
+  const doneCount = files.filter(f => f[2]==="done").length;
+  const pendingCount = files.filter(f => f[2]==="pending").length;
+  const blockedCount = files.filter(f => f[2]==="blocked").length;
+  document.getElementById('candlesLegend').textContent =
+    `${doneCount} तैयार · ${pendingCount} बाकी · ${blockedCount} रुकी हुई`;
+  document.getElementById('candlesTotalLabel').textContent = `${files.length} फाइलें कुल`;
+
+  // ---- next-up callout ----
+  const nextItems = [
+    ["असली data लाना", "data_fetcher.py --broker fyers चलाओ (env vars सेट होने पर) या बिना broker के yfinance से — दोनों में dashboard.html वैसा ही काम करेगा।"],
+    ["Fyers/Dhan SDK call भरना", "broker_adapter.py में TODO comment वाली जगह पर main backend के fyers_client.py/dhan_client.py से पैटर्न कॉपी करना — env vars: FYERS_APP_ID, FYERS_ACCESS_TOKEN, DHAN_CLIENT_ID, DHAN_ACCESS_TOKEN।"],
+    ["options_data_fetcher.py", "Data-source तय होने के बाद ही शुरू होगा — NSE bhavcopy (मुफ्त, raw) या paid vendor में से एक चुनना होगा।"],
+  ];
+  document.getElementById('nextUp').innerHTML = nextItems.map(([t,d], i) => `
+    <div class="row">
+      <div class="idx">${String(i+1).padStart(2,'0')}</div>
+      <div><b>${t}</b><span>${d}</span></div>
+    </div>`).join("");
 </script>
+
 </body>
 </html>

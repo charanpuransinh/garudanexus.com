@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Algo Backtesting Scanner — Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,72,500;0,72,600;0,72,700;1,72,500&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0B0F14; --panel:#12181F; --panel-raised:#161D26; --panel-line:#232C36;
+    --paper:#E9E4D8; --paper-dim:#F5F1E7;
+    --amber:#C99A4B; --amber-dim:rgba(201,154,75,0.15);
+    --teal:#4FA695; --teal-dim:rgba(79,166,149,0.15);
+    --red:#B5624B; --red-dim:rgba(181,98,75,0.15);
+    --muted:#8B93A0;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{ background:var(--ink); color:var(--paper); font-family:'IBM Plex Sans', sans-serif; line-height:1.5; }
+  ::selection{ background:var(--amber); color:var(--ink); }
+
+  header{
+    border-bottom:1px solid var(--panel-line); background:var(--panel);
+    padding:22px 20px 0; display:flex; flex-direction:column; gap:14px;
+  }
+  .header-top{ display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:10px; max-width:1100px; margin:0 auto; width:100%; }
+  .header-title-block{ display:flex; flex-direction:column; gap:4px; }
+  header h1{ font-family:'Newsreader', serif; font-weight:600; font-size:23px; color:var(--paper-dim); letter-spacing:0.01em; }
+  .header-tagline{ font-family:'Newsreader', serif; font-style:italic; font-size:13px; color:var(--muted); }
+  .status-dot{ width:8px; height:8px; border-radius:50%; display:inline-block; margin-right:6px; }
+  .status-dot.ok{ background:var(--teal); box-shadow:0 0 0 3px var(--teal-dim); }
+  .status-dot.bad{ background:var(--red); box-shadow:0 0 0 3px var(--red-dim); }
+  #apiStatus{ font-family:'IBM Plex Mono', monospace; font-size:12px; color:var(--muted); }
+
+  .tab-nav{ max-width:1100px; margin:0 auto; width:100%; display:flex; gap:2px; }
+  .tab-btn{
+    font-family:'IBM Plex Mono', monospace; font-size:12.5px; letter-spacing:0.03em;
+    background:transparent; border:none; color:var(--muted); padding:12px 18px;
+    cursor:pointer; border-bottom:2px solid transparent; transition:all 0.15s;
+  }
+  .tab-btn:hover{ color:var(--paper); }
+  .tab-btn.active{ color:var(--amber); border-bottom-color:var(--amber); }
+
+  main{ max-width:1100px; margin:0 auto; padding:24px 20px 80px; display:none; gap:20px; }
+  main.active{ display:grid; }
+
+  .card{
+    background:var(--panel); border:1px solid var(--panel-line); border-radius:4px; padding:20px;
+  }
+  .card h2{ font-family:'Newsreader', serif; font-size:18px; color:var(--paper-dim); margin-bottom:6px; font-weight:600; }
+  .card .card-sub{ color:var(--muted); font-size:12.5px; margin-bottom:14px; }
+
+  .controls-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:14px; }
+  label{ display:block; font-size:11px; text-transform:uppercase; letter-spacing:0.06em; color:var(--muted); margin-bottom:6px; }
+  select, input[type=number], input[type=date], input[type=text]{
+    width:100%; background:var(--panel-raised); border:1px solid var(--panel-line); color:var(--paper);
+    padding:9px 10px; border-radius:3px; font-family:'IBM Plex Mono', monospace; font-size:13px;
+  }
+  select:focus, input:focus, textarea:focus{ outline:1px solid var(--amber); }
+
+  .indicator-search{ margin-bottom:12px; }
+  .indicator-grid{
+    display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:8px;
+    max-height:280px; overflow-y:auto; padding-right:4px;
+  }
+  .ind-chip{
+    display:flex; align-items:center; gap:8px; background:var(--panel-raised);
+    border:1px solid var(--panel-line); border-radius:3px; padding:8px 10px; cursor:pointer;
+    font-family:'IBM Plex Mono', monospace; font-size:12px; transition:border-color 0.15s;
+  }
+  .ind-chip:hover{ border-color:var(--amber); }
+  .ind-chip.active{ border-color:var(--teal); background:var(--teal-dim); color:var(--teal); }
+  .ind-chip input{ accent-color:var(--teal); }
+
+  .btn{
+    font-family:'IBM Plex Mono', monospace; font-size:13px; letter-spacing:0.03em;
+    padding:11px 22px; border-radius:3px; border:1px solid var(--amber); background:var(--amber-dim);
+    color:var(--amber); cursor:pointer; transition:all 0.15s;
+  }
+  .btn:hover{ background:var(--amber); color:var(--ink); }
+  .btn:disabled{ opacity:0.4; cursor:not-allowed; }
+  .btn.secondary{ border-color:var(--panel-line); background:transparent; color:var(--muted); }
+  .btn.secondary:hover{ border-color:var(--muted); color:var(--paper); background:transparent; }
+
+  .action-row{ display:flex; gap:10px; align-items:center; margin-top:16px; flex-wrap:wrap; }
+  .selected-count{ font-family:'IBM Plex Mono', monospace; font-size:12px; color:var(--muted); }
+
+  .result-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:14px; margin-top:14px; }
+  .result-panel{ border:1px solid var(--panel-line); border-radius:4px; padding:16px; background:var(--panel-raised); }
+  .result-panel h3{ font-family:'IBM Plex Mono', monospace; font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); margin-bottom:12px; }
+  .metric{ display:flex; justify-content:space-between; padding:5px 0; font-size:13px; border-bottom:1px solid var(--panel-line); }
+  .metric:last-child{ border-bottom:none; }
+  .metric b{ font-family:'IBM Plex Mono', monospace; color:var(--paper); }
+  .verdict{
+    margin-top:14px; padding:10px 12px; border-radius:3px; font-size:13px; font-family:'IBM Plex Mono', monospace;
+  }
+  .verdict.good{ background:var(--teal-dim); color:var(--teal); border:1px solid rgba(79,166,149,0.4); }
+  .verdict.warn{ background:var(--red-dim); color:var(--red); border:1px solid rgba(181,98,75,0.4); }
+
+  table.opt-results{ width:100%; border-collapse:collapse; font-family:'IBM Plex Mono', monospace; font-size:12px; margin-top:10px; }
+  table.opt-results th{ text-align:left; color:var(--muted); font-size:10px; text-transform:uppercase; letter-spacing:0.06em; padding:8px; border-bottom:1px solid var(--panel-line); }
+  table.opt-results td{ padding:8px; border-bottom:1px solid var(--panel-line); color:var(--paper); }
+  table.opt-results tr:hover td{ background:var(--panel); }
+
+  .empty-note{ color:var(--muted); font-size:13px; font-style:italic; padding:20px 0; text-align:center; }
+  .loading{ color:var(--amber); font-family:'IBM Plex Mono', monospace; font-size:13px; }
+  .error-box{ background:var(--red-dim); border:1px solid rgba(181,98,75,0.4); color:var(--red); padding:12px; border-radius:3px; font-size:13px; margin-top:12px; white-space:pre-wrap; }
+
+  /* --- custom strategy tab --- */
+  .code-editor{
+    width:100%; min-height:260px; background:#0D1319; border:1px solid var(--panel-line); color:var(--teal);
+    padding:14px; border-radius:3px; font-family:'IBM Plex Mono', monospace; font-size:12.5px; line-height:1.6;
+    resize:vertical; tab-size:4;
+  }
+  .code-editor:focus{ outline:1px solid var(--amber); }
+  .code-hint{ font-family:'IBM Plex Mono', monospace; font-size:11.5px; color:var(--muted); margin-top:8px; line-height:1.7; }
+  .code-hint code{ color:var(--amber); }
+  .func-name-row{ display:flex; gap:14px; align-items:flex-end; margin-top:14px; flex-wrap:wrap; }
+  .func-name-row > div{ min-width:200px; }
+  .rules-box{
+    background:var(--panel-raised); border:1px solid var(--panel-line); border-radius:3px; padding:14px 16px;
+    font-size:12.5px; color:var(--muted); margin-bottom:16px; line-height:1.8;
+  }
+  .rules-box b{ color:var(--paper-dim); }
+
+  /* --- data-size gauge (System Health tab) --- */
+  .zone-boxes{ display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin-bottom:16px; }
+  .zone-box{
+    border-radius:4px; padding:12px 10px; text-align:center; font-family:'IBM Plex Mono', monospace;
+    border:1px solid var(--panel-line); opacity:0.35; transition:opacity 0.2s, transform 0.2s;
+  }
+  .zone-box.active{ opacity:1; transform:translateY(-2px); }
+  .zone-box .zone-dot{ width:10px; height:10px; border-radius:50%; margin:0 auto 6px; }
+  .zone-box .zone-label{ font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color:var(--muted); }
+  .zone-box.active .zone-label{ color:var(--paper-dim); }
+  .zone-box.green .zone-dot{ background:var(--teal); }
+  .zone-box.orange .zone-dot{ background:var(--amber); }
+  .zone-box.red .zone-dot{ background:var(--red); }
+  .zone-box.green.active{ background:var(--teal-dim); border-color:rgba(79,166,149,0.4); }
+  .zone-box.orange.active{ background:var(--amber-dim); border-color:rgba(201,154,75,0.4); }
+  .zone-box.red.active{ background:var(--red-dim); border-color:rgba(181,98,75,0.4); }
+
+  .gauge-wrap{ position:relative; padding-top:6px; }
+  .gauge-track{
+    position:relative; height:16px; border-radius:8px; overflow:hidden; display:flex;
+    border:1px solid var(--panel-line);
+  }
+  .gauge-seg{ height:100%; }
+  .gauge-seg.g{ background:var(--teal); opacity:0.55; }
+  .gauge-seg.o{ background:var(--amber); opacity:0.55; }
+  .gauge-seg.r{ background:var(--red); opacity:0.55; }
+  .gauge-needle{
+    position:absolute; top:-5px; width:2px; height:26px; background:var(--paper-dim);
+    box-shadow:0 0 6px rgba(233,228,216,0.6); transition:left 0.3s;
+  }
+  .gauge-danger-line{
+    position:absolute; top:-5px; width:0; height:26px; border-left:2px dashed var(--red);
+  }
+  .gauge-scale{ display:flex; justify-content:space-between; font-family:'IBM Plex Mono', monospace; font-size:10px; color:var(--muted); margin-top:4px; }
+  .gauge-readout{ font-family:'IBM Plex Mono', monospace; font-size:13px; margin-top:14px; display:flex; justify-content:space-between; flex-wrap:wrap; gap:6px; }
+  .gauge-readout b{ color:var(--paper-dim); font-weight:500; }
+  .gauge-top-files{ margin-top:12px; font-size:12px; color:var(--muted); font-family:'IBM Plex Mono', monospace; }
+  .gauge-top-files div{ display:flex; justify-content:space-between; padding:3px 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-top">
+    <div class="header-title-block">
+      <h1>Algo Backtesting Scanner</h1>
+      <span class="header-tagline">इंडिकेटर चुनकर टेस्ट करो, या अपनी strategy का code पेस्ट करके टेस्ट करो — result एक ही तराज़ू पर तुला हुआ</span>
+    </div>
+    <div id="apiStatus"><span class="status-dot bad"></span>API से जुड़ रहा है...</div>
+  </div>
+  <nav class="tab-nav">
+    <button class="tab-btn active" data-tab="scanner">1 · Indicator Scanner</button>
+    <button class="tab-btn" data-tab="custom">2 · Custom Strategy Tester</button>
+    <button class="tab-btn" data-tab="health">3 · System Health</button>
+  </nav>
+</header>
+
+<main id="tab-scanner" class="active">
+
+  <div class="card">
+    <h2>Symbol और Backtest Settings</h2>
+    <div class="controls-grid">
+      <div>
+        <label>Instrument</label>
+        <select id="symbolSelect"><option>लोड हो रहा है...</option></select>
+      </div>
+      <div>
+        <label>Timeframe</label>
+        <select id="timeframeSelect"></select>
+      </div>
+      <div>
+        <label>Target %</label>
+        <input type="number" id="targetPct" value="1.0" step="0.1">
+      </div>
+      <div>
+        <label>Stoploss %</label>
+        <input type="number" id="slPct" value="0.5" step="0.1">
+      </div>
+      <div>
+        <label>Max Hold Bars</label>
+        <input type="number" id="maxHold" value="20" step="1">
+      </div>
+      <div>
+        <label>Train/Test Split</label>
+        <input type="date" id="splitDate" value="2023-12-31">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Indicators टॉगल करो (<span id="indicatorCount">0</span> उपलब्ध)</h2>
+    <input class="indicator-search" type="text" id="indicatorSearch" placeholder="इंडिकेटर खोजो... जैसे RSI, MACD">
+    <div class="indicator-grid" id="indicatorGrid"></div>
+    <div class="action-row">
+      <button class="btn" id="runBtn">Run Backtest</button>
+      <button class="btn secondary" id="clearBtn">सब हटाओ</button>
+      <span class="selected-count" id="selectedCount">0 चुने गए</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Result</h2>
+    <div id="resultArea"><div class="empty-note">Indicators चुनकर "Run Backtest" दबाओ — यहाँ Train/Test win-rate, target/SL hit%, drawdown लाइव दिखेगा।</div></div>
+  </div>
+
+  <div class="card">
+    <h2>Auto-Optimizer</h2>
+    <p class="card-sub">खुद अच्छे indicator-combo ढूंढता है — walk-forward validation से overfit वाले combo अपने-आप बाहर हो जाते हैं।</p>
+    <div class="action-row">
+      <select id="optMode" style="width:auto;">
+        <option value="genetic">Genetic Search (सारे 50 indicators)</option>
+        <option value="grid">Grid Search (छोटा pool, तेज़)</option>
+      </select>
+      <button class="btn" id="optimizeBtn">Optimizer चलाओ</button>
+    </div>
+    <div id="optResultArea"></div>
+  </div>
+
+</main>
+
+<main id="tab-custom">
+
+  <div class="card">
+    <h2>Symbol और Backtest Settings</h2>
+    <div class="controls-grid">
+      <div>
+        <label>Instrument</label>
+        <select id="cSymbolSelect"><option>लोड हो रहा है...</option></select>
+      </div>
+      <div>
+        <label>Timeframe</label>
+        <select id="cTimeframeSelect"></select>
+      </div>
+      <div>
+        <label>Target %</label>
+        <input type="number" id="cTargetPct" value="1.0" step="0.1">
+      </div>
+      <div>
+        <label>Stoploss %</label>
+        <input type="number" id="cSlPct" value="0.5" step="0.1">
+      </div>
+      <div>
+        <label>Max Hold Bars</label>
+        <input type="number" id="cMaxHold" value="20" step="1">
+      </div>
+      <div>
+        <label>Train/Test Split</label>
+        <input type="date" id="cSplitDate" value="2023-12-31">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>अपनी Strategy का Code पेस्ट करो</h2>
+    <p class="card-sub">code अलग process में, restricted तरीके से चलता है — फिर वही backtest engine जो checkbox वाली strategies पर चलता है, वही यहाँ भी चलता है। result का फॉर्मेट दोनों जगह एक जैसा रहता है, ताकि तुलना करना आसान हो।</p>
+
+    <div class="rules-box">
+      <b>पैटर्न:</b> <code>def my_strategy(df): ...</code> — df में open/high/low/close/volume columns हैं। अंत में एक boolean Series return करो (जहां True हो वहीं entry मानी जाएगी)।<br>
+      <b>Indicators:</b> <code>ind.compute("RSI", df, period=14)</code> जैसे इस्तेमाल करो — 50 indicators पहले से उपलब्ध हैं (indicators.py देखो)।<br>
+      <b>इजाज़त:</b> सिर्फ pandas (<code>pd</code>), numpy (<code>np</code>) और indicators (<code>ind</code>) इस्तेमाल हो सकते हैं — file/network/OS वाला कोड चलने से पहले ही रोक दिया जाता है।
+    </div>
+
+    <textarea class="code-editor" id="strategyCode" spellcheck="false">def my_strategy(df):
+    # उदाहरण: RSI 30 से नीचे + close, EMA20 के ऊपर हो तभी entry
+    rsi = ind.compute("RSI", df, period=14)
+    ema20 = ind.compute("EMA", df, period=20)
+    return (rsi < 30) & (df["close"] > ema20)</textarea>
+
+    <div class="func-name-row">
+      <div>
+        <label>Function का नाम</label>
+        <input type="text" id="funcName" value="my_strategy">
+      </div>
+      <button class="btn" id="runCustomBtn" style="align-self:flex-end;">Strategy Test करो</button>
+      <span class="selected-count" id="customStatus"></span>
+    </div>
+    <div class="code-hint">Timeout: 20 सेकंड। कोड 20,000 अक्षर तक। Error आए तो नीचे साफ़ बताया जाएगा — कोई भी गलती से पूरा server नहीं रुकेगा।</div>
+  </div>
+
+  <div class="card">
+    <h2>Result</h2>
+    <div id="customResultArea"><div class="empty-note">ऊपर code पेस्ट करके "Strategy Test करो" दबाओ — यहाँ Train/Test win-rate, target/SL hit%, timeout%, drawdown, और overfit-check दिखेगा।</div></div>
+  </div>
+
+</main>
+
+<main id="tab-health">
+
+  <div class="card">
+    <h2>Data कितना Heavy है — मीटर</h2>
+    <p class="card-sub">data/ folder (सारे symbols की parquet फाइलें मिलाकर) कितनी जगह ले रहा है — हरा ठीक, नारंगी नज़र रखो, लाल यानी danger zone में घुस गए, कुछ पुराना/बेकार data हटाना चाहिए।</p>
+    <div id="dataSizeArea"><div class="empty-note">लोड हो रहा है...</div></div>
+  </div>
+
+  <div class="card">
+    <h2>System Self-Check</h2>
+    <p class="card-sub">यह पूरा system चलाकर जांचता है — data files, सारे 50 indicators, backtest engine, और strategy sandbox। जो अपने-आप ठीक हो सकता है (missing folder, corrupt data file, टूटा हुआ indicator) वो कर देता है — बाकी पर लाल निशान लगाकर बताता है कि क्या करना है।</p>
+    <div class="action-row">
+      <button class="btn" id="healthCheckBtn">Self-Check चलाओ</button>
+      <span class="selected-count" id="healthStatus"></span>
+    </div>
+    <div id="healthResultArea" style="margin-top:16px;"><div class="empty-note">"Self-Check चलाओ" दबाओ — हर हिस्सा green/yellow/red मार्क के साथ दिखेगा।</div></div>
+  </div>
+
+  <div class="card">
+    <h2 style="font-size:14px; text-transform:uppercase; letter-spacing:0.06em; color:var(--muted);">रोज़ाना अपने-आप चलाने के लिए</h2>
+    <p class="card-sub" style="margin-bottom:0;">Dashboard से manual चलाना काफ़ी ना लगे तो टर्मिनल पर <code style="color:var(--amber);">python self_healing.py</code> को cron/pm2 से हर 15 मिनट पर चला सकते हो — यह अपने-आप results/self_healing_log.json में history रखता है और कुछ लाल (FAIL) मिले तो exit code 1 देता है, जिस पर pm2/cron अलर्ट भेज सकता है। पूरी जानकारी SELF_HEALING_SETUP.md में है।</p>
+  </div>
+
+</main>
+
+<script>
+  const HEALTH_ICON = { pass: '🟢', warn: '🟡', fail: '🔴' };
+  const HEALTH_LABEL = { pass: 'ठीक', warn: 'ध्यान दो', fail: 'गड़बड़' };
+
+  function renderHealth(report){
+    const overallIcon = { green: '🟢', yellow: '🟡', red: '🔴' }[report.overall];
+    const rows = report.checks.map(c => `
+      <div class="metric" style="align-items:flex-start;">
+        <span>${HEALTH_ICON[c.status]} ${c.name}${c.auto_fixed ? ' <span style="color:var(--teal);font-size:11px;">(खुद ठीक किया)</span>' : ''}</span>
+        <b style="text-align:right; max-width:60%; font-weight:400; color:var(--muted);">${c.detail}</b>
+      </div>`).join('');
+    document.getElementById('healthResultArea').innerHTML = `
+      <div class="verdict ${report.overall === 'red' ? 'warn' : 'good'}" style="margin-top:0; margin-bottom:14px;">
+        ${overallIcon} OVERALL: ${report.overall.toUpperCase()} · ${report.duration_sec}s में पूरा हुआ · ${report.timestamp.replace('T',' ').slice(0,19)}
+      </div>
+      <div class="result-panel">${rows}</div>
+    `;
+  }
+
+  function renderDataSize(d){
+    const zoneOrder = ['green', 'orange', 'red'];
+    const zoneLabel = { green: 'हरा — ठीक है', orange: 'नारंगी — नज़र रखो', red: 'लाल — Danger Zone' };
+    const boxes = zoneOrder.map(z => `
+      <div class="zone-box ${z} ${d.zone === z ? 'active' : ''}">
+        <div class="zone-dot"></div>
+        <div class="zone-label">${zoneLabel[z]}</div>
+      </div>`).join('');
+
+    const gaugeMax = d.gauge_max_mb;
+    const greenPct = Math.min(100, 100 * d.green_max_mb / gaugeMax);
+    const orangePct = Math.min(100 - greenPct, 100 * (d.danger_at_mb - d.green_max_mb) / gaugeMax);
+    const redPct = Math.max(0, 100 - greenPct - orangePct);
+    const needlePct = Math.min(100, Math.max(0, 100 * d.total_mb / gaugeMax));
+    const dangerLinePct = Math.min(100, 100 * d.danger_at_mb / gaugeMax);
+
+    const topFiles = d.top_files.length
+      ? d.top_files.map(f => `<div><span>${f.name}</span><span>${f.mb} MB</span></div>`).join('')
+      : '<div style="text-align:center;">अभी कोई data file नहीं मिली — data_fetcher.py चलाना बाकी है</div>';
+
+    document.getElementById('dataSizeArea').innerHTML = `
+      <div class="zone-boxes">${boxes}</div>
+      <div class="gauge-wrap">
+        <div class="gauge-track">
+          <div class="gauge-seg g" style="width:${greenPct}%"></div>
+          <div class="gauge-seg o" style="width:${orangePct}%"></div>
+          <div class="gauge-seg r" style="width:${redPct}%"></div>
+        </div>
+        <div class="gauge-needle" style="left:${needlePct}%"></div>
+        <div class="gauge-danger-line" style="left:${dangerLinePct}%"></div>
+        <div class="gauge-scale">
+          <span>0 MB</span>
+          <span>Danger: ${d.danger_at_mb} MB</span>
+          <span>${gaugeMax.toFixed(0)} MB</span>
+        </div>
+      </div>
+      <div class="gauge-readout">
+        <span>कुल size: <b>${d.total_mb} MB</b></span>
+        <span>कुल फाइलें: <b>${d.total_files}</b></span>
+        <span>Zone: <b>${zoneLabel[d.zone]}</b></span>
+      </div>
+      <div class="gauge-top-files"><b style="color:var(--paper-dim);">सबसे भारी फाइलें:</b>${topFiles}</div>
+    `;
+  }
+
+  async function loadDataSize(){
+    try{
+      const d = await apiGet('/api/data_size');
+      renderDataSize(d);
+    }catch(e){
+      document.getElementById('dataSizeArea').innerHTML = `<div class="error-box">${e.message}</div>`;
+    }
+  }
+
+  document.getElementById('healthCheckBtn').addEventListener('click', async () => {
+    const status = document.getElementById('healthStatus');
+    status.textContent = 'चल रहा है...';
+    document.getElementById('healthResultArea').innerHTML = '<div class="loading">Self-check चल रहा है...</div>';
+    try{
+      const report = await apiGet('/api/self_check');
+      renderHealth(report);
+      loadDataSize();   // self-check खराब फाइलें हटा सकता है, इसलिए gauge भी ताज़ा कर दो
+      status.textContent = '';
+    }catch(e){
+      document.getElementById('healthResultArea').innerHTML = `<div class="error-box">${e.message}</div>`;
+      status.textContent = 'error आया';
+    }
+  });
+</script>
+
+<script>
+  const API = "";  // same-origin — api_server.py इसी host से dashboard.html भी serve करता है
+  let allIndicators = [];
+  let selectedIndicators = new Set();
+
+  async function apiGet(path){
+    const res = await fetch(API + path);
+    if(!res.ok) throw new Error(`${path} -> ${res.status}`);
+    return res.json();
+  }
+  async function apiPost(path, body){
+    const res = await fetch(API + path, {
+      method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.detail || `${path} -> ${res.status}`);
+    return data;
+  }
+
+  // ---- tabs ----
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('main').forEach(m => m.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    });
+  });
+
+  async function checkHealth(){
+    const dot = document.querySelector('#apiStatus .status-dot');
+    const label = document.getElementById('apiStatus');
+    try{
+      const h = await apiGet('/api/health');
+      dot.className = 'status-dot ok';
+      label.innerHTML = `<span class="status-dot ok"></span>API जुड़ा है · ${h.indicators} indicators रजिस्टर्ड`;
+    }catch(e){
+      dot.className = 'status-dot bad';
+      label.innerHTML = `<span class="status-dot bad"></span>API से कनेक्ट नहीं हो पाया — api_server.py चल रहा है?`;
+    }
+  }
+
+  async function loadUniverse(){
+    try{
+      const rows = await apiGet('/api/universe');
+      const opts = rows.map(r => `<option value="${r.symbol}">${r.symbol} (${r.type})</option>`).join('');
+      document.getElementById('symbolSelect').innerHTML = opts;
+      document.getElementById('cSymbolSelect').innerHTML = opts;
+    }catch(e){
+      document.getElementById('symbolSelect').innerHTML = '<option>universe.csv लोड नहीं हुई</option>';
+      document.getElementById('cSymbolSelect').innerHTML = '<option>universe.csv लोड नहीं हुई</option>';
+    }
+  }
+
+  async function loadTimeframes(){
+    try{
+      const tf = await apiGet('/api/timeframes');
+      const opts = tf.timeframes.map(t => `<option value="${t}" ${t===tf.default?'selected':''}>${t}</option>`).join('');
+      document.getElementById('timeframeSelect').innerHTML = opts;
+      document.getElementById('cTimeframeSelect').innerHTML = opts;
+    }catch(e){}
+  }
+
+  async function loadIndicators(){
+    try{
+      const data = await apiGet('/api/indicators');
+      allIndicators = data.indicators;
+      document.getElementById('indicatorCount').textContent = data.count;
+      renderIndicatorGrid(allIndicators);
+    }catch(e){
+      document.getElementById('indicatorGrid').innerHTML = '<div class="empty-note">indicators.py से list नहीं मिली</div>';
+    }
+  }
+
+  function renderIndicatorGrid(list){
+    const grid = document.getElementById('indicatorGrid');
+    grid.innerHTML = list.map(ind => `
+      <label class="ind-chip ${selectedIndicators.has(ind.name)?'active':''}" data-name="${ind.name}">
+        <input type="checkbox" ${selectedIndicators.has(ind.name)?'checked':''}>
+        ${ind.name}
+      </label>`).join('');
+    grid.querySelectorAll('.ind-chip').forEach(chip => {
+      chip.addEventListener('click', (e) => {
+        e.preventDefault();
+        const name = chip.dataset.name;
+        const cb = chip.querySelector('input');
+        if(selectedIndicators.has(name)){ selectedIndicators.delete(name); cb.checked = false; chip.classList.remove('active'); }
+        else{ selectedIndicators.add(name); cb.checked = true; chip.classList.add('active'); }
+        document.getElementById('selectedCount').textContent = `${selectedIndicators.size} चुने गए`;
+      });
+    });
+  }
+
+  document.getElementById('indicatorSearch').addEventListener('input', (e) => {
+    const q = e.target.value.trim().toLowerCase();
+    renderIndicatorGrid(allIndicators.filter(i => i.name.toLowerCase().includes(q)));
+  });
+
+  document.getElementById('clearBtn').addEventListener('click', () => {
+    selectedIndicators.clear();
+    document.getElementById('selectedCount').textContent = '0 चुने गए';
+    renderIndicatorGrid(allIndicators);
+  });
+
+  function renderMetrics(m){
+    return `
+      <div class="metric"><span>Trades</span><b>${m.trades}</b></div>
+      <div class="metric"><span>Win Rate</span><b>${m['win_rate_%']}%</b></div>
+      <div class="metric"><span>Target Hit</span><b>${m['target_hit_%']}%</b></div>
+      <div class="metric"><span>SL Hit</span><b>${m['sl_hit_%']}%</b></div>
+      <div class="metric"><span>Timeout</span><b>${m['timeout_%']}%</b></div>
+      <div class="metric"><span>Avg Return</span><b>${m['avg_return_%']}%</b></div>
+      <div class="metric"><span>Max Drawdown</span><b>${m['max_drawdown_%']}%</b></div>
+    `;
+  }
+
+  function renderResultInto(targetId, res){
+    const gap = res.overfit_gap_win_rate_pts;
+    const verdictClass = res.verdict.includes('⚠️') ? 'warn' : 'good';
+    document.getElementById(targetId).innerHTML = `
+      <div class="result-grid">
+        <div class="result-panel">
+          <h3>Train (पुराना data)</h3>
+          ${renderMetrics(res.train)}
+        </div>
+        <div class="result-panel">
+          <h3>Test (नया / असली भरोसे वाला)</h3>
+          ${renderMetrics(res.test)}
+        </div>
+      </div>
+      <div class="verdict ${verdictClass}">${res.verdict} — overfit gap: ${gap} pts (train winrate − test winrate)</div>
+    `;
+  }
+
+  document.getElementById('runBtn').addEventListener('click', async () => {
+    if(selectedIndicators.size === 0){
+      document.getElementById('resultArea').innerHTML = '<div class="error-box">कम-से-कम एक indicator चुनो</div>';
+      return;
+    }
+    document.getElementById('resultArea').innerHTML = '<div class="loading">चल रहा है...</div>';
+    try{
+      const res = await apiPost('/api/backtest', {
+        symbol: document.getElementById('symbolSelect').value,
+        timeframe: document.getElementById('timeframeSelect').value,
+        toggled_indicators: Array.from(selectedIndicators),
+        target_pct: parseFloat(document.getElementById('targetPct').value),
+        sl_pct: parseFloat(document.getElementById('slPct').value),
+        max_hold_bars: parseInt(document.getElementById('maxHold').value),
+        split_date: document.getElementById('splitDate').value,
+      });
+      renderResultInto('resultArea', res);
+    }catch(e){
+      document.getElementById('resultArea').innerHTML = `<div class="error-box">${e.message}</div>`;
+    }
+  });
+
+  document.getElementById('optimizeBtn').addEventListener('click', async () => {
+    const area = document.getElementById('optResultArea');
+    area.innerHTML = '<div class="loading">Optimizer चल रहा है — genetic search में थोड़ा वक्त लगेगा...</div>';
+    try{
+      const res = await apiPost('/api/optimize', {
+        symbol: document.getElementById('symbolSelect').value,
+        timeframe: document.getElementById('timeframeSelect').value,
+        mode: document.getElementById('optMode').value,
+        top_n: 10,
+      });
+      if(res.results.length === 0){
+        area.innerHTML = '<div class="empty-note">कोई भरोसेमंद combo नहीं मिला — data कम है या सारे combo overfit जैसे लगे</div>';
+        return;
+      }
+      area.innerHTML = `
+        <table class="opt-results">
+          <thead><tr><th>#</th><th>Rule Combo</th><th>Win Rate</th><th>Score</th><th>Overfit Gap</th><th>Trades</th></tr></thead>
+          <tbody>
+            ${res.results.map((r,i) => `
+              <tr>
+                <td>${i+1}</td>
+                <td>${r.rules_label}</td>
+                <td>${r['mean_win_rate_%']}%</td>
+                <td>${r.score}</td>
+                <td>${r.overfit_gap_pts}pts</td>
+                <td>${r.total_trades}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>`;
+    }catch(e){
+      area.innerHTML = `<div class="error-box">${e.message}</div>`;
+    }
+  });
+
+  // ---- custom strategy tab ----
+  document.getElementById('runCustomBtn').addEventListener('click', async () => {
+    const status = document.getElementById('customStatus');
+    const area = document.getElementById('customResultArea');
+    const code = document.getElementById('strategyCode').value;
+    if(!code.trim()){
+      area.innerHTML = '<div class="error-box">पहले code पेस्ट करो</div>';
+      return;
+    }
+    status.textContent = 'चल रहा है...';
+    area.innerHTML = '<div class="loading">Sandbox में code चल रहा है (ज़्यादा से ज़्यादा 20 सेकंड)...</div>';
+    try{
+      const res = await apiPost('/api/custom_backtest', {
+        symbol: document.getElementById('cSymbolSelect').value,
+        timeframe: document.getElementById('cTimeframeSelect').value,
+        code: code,
+        func_name: document.getElementById('funcName').value || 'my_strategy',
+        target_pct: parseFloat(document.getElementById('cTargetPct').value),
+        sl_pct: parseFloat(document.getElementById('cSlPct').value),
+        max_hold_bars: parseInt(document.getElementById('cMaxHold').value),
+        split_date: document.getElementById('cSplitDate').value,
+      });
+      renderResultInto('customResultArea', res);
+      status.textContent = 'पूरा हुआ';
+    }catch(e){
+      area.innerHTML = `<div class="error-box">${e.message}</div>`;
+      status.textContent = 'error आया';
+    }
+  });
+
+  // ---- init ----
+  checkHealth();
+  loadUniverse();
+  loadTimeframes();
+  loadIndicators();
+  loadDataSize();
+</script>
+
+</body>
+</html>
