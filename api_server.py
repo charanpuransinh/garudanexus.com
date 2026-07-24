@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import List, Optional
 
 import pandas as pd
+import psutil
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -158,10 +159,35 @@ def health():
     return {"status": "ok", "indicators": len(ind.INDICATOR_REGISTRY)}
 
 
-@app.get("/api/data_size")
-def data_size():
-    """data/ folder कितना heavy हुआ — dashboard के green/orange/red gauge के लिए।"""
-    return self_healing.data_disk_usage()
+@app.get("/api/system_load")
+def system_load():
+    """Real CPU/memory load status — GREEN/YELLOW/RED (added 2026-07-24,
+    per explicit request: a previously-planned status indicator that
+    wasn't found anywhere in the actual code). cpu_percent(interval=0.3)
+    takes a short real sample rather than the instant (and often
+    misleading) 0.0 you get from interval=None on the first call."""
+    cpu_pct = psutil.cpu_percent(interval=0.3)
+    mem = psutil.virtual_memory()
+    mem_pct = mem.percent
+    combined = max(cpu_pct, mem_pct)
+
+    if combined <= config.LOAD_GREEN_MAX_PCT:
+        status = "green"
+    elif combined <= config.LOAD_YELLOW_MAX_PCT:
+        status = "yellow"
+    else:
+        status = "red"
+
+    return {
+        "status": status,
+        "cpu_percent": round(cpu_pct, 1),
+        "memory_percent": round(mem_pct, 1),
+        "memory_used_mb": round(mem.used / (1024 * 1024), 1),
+        "memory_total_mb": round(mem.total / (1024 * 1024), 1),
+        "combined_percent": round(combined, 1),
+        "green_max_pct": config.LOAD_GREEN_MAX_PCT,
+        "yellow_max_pct": config.LOAD_YELLOW_MAX_PCT,
+    }
 
 
 @app.get("/api/self_check")

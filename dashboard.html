@@ -32,6 +32,25 @@
   .status-dot.bad{ background:var(--red); box-shadow:0 0 0 3px var(--red-dim); }
   #apiStatus{ font-family:'IBM Plex Mono', monospace; font-size:12px; color:var(--muted); }
 
+  /* System load status pill (added 2026-07-24) — real CPU/memory via
+     /api/system_load, auto-refreshed. green/yellow/red per config.py's
+     LOAD_GREEN_MAX_PCT/LOAD_YELLOW_MAX_PCT thresholds. */
+  #loadStatus{
+    font-family:'IBM Plex Mono', monospace; font-size:12px; color:var(--muted);
+    display:flex; align-items:center; gap:8px;
+  }
+  .load-pill{
+    display:inline-flex; align-items:center; gap:6px;
+    padding:3px 10px; border-radius:3px; font-size:11px; font-weight:600; letter-spacing:0.03em;
+  }
+  .load-pill .dot{ width:7px; height:7px; border-radius:50%; }
+  .load-pill.green{ background:var(--teal-dim); color:var(--teal); border:1px solid rgba(79,166,149,0.4); }
+  .load-pill.green .dot{ background:var(--teal); }
+  .load-pill.yellow{ background:var(--amber-dim); color:var(--amber); border:1px solid rgba(201,154,75,0.4); }
+  .load-pill.yellow .dot{ background:var(--amber); }
+  .load-pill.red{ background:var(--red-dim); color:var(--red); border:1px solid rgba(181,98,75,0.4); }
+  .load-pill.red .dot{ background:var(--red); }
+
   .tab-nav{ max-width:1100px; margin:0 auto; width:100%; display:flex; gap:2px; }
   .tab-btn{
     font-family:'IBM Plex Mono', monospace; font-size:12.5px; letter-spacing:0.03em;
@@ -183,6 +202,7 @@
       <span class="header-tagline">इंडिकेटर चुनकर टेस्ट करो, या अपनी strategy का code पेस्ट करके टेस्ट करो — result एक ही तराज़ू पर तुला हुआ</span>
     </div>
     <div id="apiStatus"><span class="status-dot bad"></span>API से जुड़ रहा है...</div>
+    <div id="loadStatus"><span class="load-pill green"><span class="dot"></span>लोड चेक हो रहा है...</span></div>
   </div>
   <nav class="tab-nav">
     <button class="tab-btn active" data-tab="scanner">1 · Indicator Scanner</button>
@@ -435,7 +455,20 @@
 </script>
 
 <script>
-  const API = "";  // same-origin — api_server.py इसी host से dashboard.html भी serve करता है
+  // BUG FIX (2026-07-24): API="" (bare same-origin) only worked when this
+  // page is opened DIRECTLY on port 8090, where api_server.py itself
+  // serves both dashboard.html and /api/* on the exact same origin+path.
+  // The REAL production URL (garudanexus.com/trading-bot/dashboard.html,
+  // and therefore the Flutter WebView app too) goes through nginx, which
+  // only proxies /trading-bot/api/* to this backend — a bare /api/* call
+  // 404s there (confirmed live: hits a completely different app on the
+  // same domain). Every single fetch on this page (universe, timeframes,
+  // indicators, health, backtest, optimize, custom_backtest, data_size,
+  // self_check, system_load) was silently failing in the real deployed
+  // context because of this one constant. Detecting the real path prefix
+  // instead of hardcoding either pattern, so both direct :8090 access
+  // (local dev/testing) and the real /trading-bot/ deployed URL work.
+  const API = window.location.pathname.startsWith("/trading-bot/") ? "/trading-bot" : "";
   let allIndicators = [];
   let selectedIndicators = new Set();
 
@@ -473,6 +506,19 @@
     }catch(e){
       dot.className = 'status-dot bad';
       label.innerHTML = `<span class="status-dot bad"></span>API से कनेक्ट नहीं हो पाया — api_server.py चल रहा है?`;
+    }
+  }
+
+  // System load status pill — real CPU/memory via /api/system_load,
+  // polled on the same cadence as checkHealth() (added 2026-07-24).
+  const LOAD_LABEL = {green: "सामान्य लोड", yellow: "लोड ज़्यादा हो रहा है", red: "लोड कैपेसिटी से ऊपर"};
+  async function checkLoad(){
+    const el = document.getElementById('loadStatus');
+    try{
+      const s = await apiGet('/api/system_load');
+      el.innerHTML = `<span class="load-pill ${s.status}"><span class="dot"></span>${LOAD_LABEL[s.status]} · CPU ${s.cpu_percent}% · RAM ${s.memory_percent}%</span>`;
+    }catch(e){
+      el.innerHTML = `<span class="load-pill red"><span class="dot"></span>लोड डेटा नहीं मिला</span>`;
     }
   }
 
@@ -691,6 +737,8 @@
 
   // ---- init ----
   checkHealth();
+  checkLoad();
+  setInterval(checkLoad, 15000);   // real load can change quickly — refresh every 15s
   loadUniverse();
   loadTimeframes();
   loadIndicators();

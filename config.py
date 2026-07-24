@@ -60,6 +60,14 @@ DATA_SIZE_DANGER_MB = 2000
 DATA_SIZE_GREEN_MAX_MB = 500     # इससे कम -> हरा, ठीक है
 DATA_SIZE_DANGER_AT_MB = 2000    # इससे ज़्यादा -> लाल, danger zone (बीच में नारंगी)
 
+# ---------- System load indicator (dashboard's GREEN/YELLOW/RED status pill) ----------
+# Combined CPU% + memory% (whichever is higher) drives the status:
+#   <= LOAD_GREEN_MAX_PCT           -> green (normal)
+#   LOAD_GREEN_MAX_PCT..YELLOW_MAX  -> yellow (getting close to capacity)
+#   > LOAD_YELLOW_MAX_PCT           -> red (real load, backtest/optimizer runs will feel slow)
+LOAD_GREEN_MAX_PCT = 60
+LOAD_YELLOW_MAX_PCT = 85
+
 # ---------- Optimizer ----------
 OPTIMIZER_MAX_COMBO_SIZE = 5       # एक साथ ज़्यादा से ज़्यादा कितने indicators combine होंगे
 OPTIMIZER_WALK_FORWARD_FOLDS = 4   # walk-forward validation folds
