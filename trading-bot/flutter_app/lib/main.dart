@@ -43,6 +43,12 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   late final WebViewController _controller;
   bool _loading = true;
+  String? _errorMessage;
+
+  void _load() {
+    setState(() => _errorMessage = null);
+    _controller.loadRequest(Uri.parse(dashboardUrl));
+  }
 
   @override
   void initState() {
@@ -54,6 +60,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
         NavigationDelegate(
           onPageStarted: (_) => setState(() => _loading = true),
           onPageFinished: (_) => setState(() => _loading = false),
+          // BUG FIX (2026-07-25): previously any load failure (missing
+          // INTERNET permission, no signal, DNS/SSL failure) just left the
+          // screen on its plain black background forever with zero
+          // indication of what went wrong. Now the actual error is shown,
+          // with a retry button.
+          onWebResourceError: (error) {
+            if (error.isForMainFrame ?? true) {
+              setState(() {
+                _loading = false;
+                _errorMessage = '${error.errorCode}: ${error.description}';
+              });
+            }
+          },
         ),
       )
       ..loadRequest(Uri.parse(dashboardUrl));
@@ -80,6 +99,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
               if (_loading)
                 const Center(
                   child: CircularProgressIndicator(color: Color(0xFFF5C518)),
+                ),
+              if (_errorMessage != null)
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.wifi_off, color: Colors.white54, size: 40),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Dashboard load नहीं हो पाया:\n$_errorMessage',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: Colors.white70),
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: _load,
+                          child: const Text('फिर कोशिश करो'),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
             ],
           ),

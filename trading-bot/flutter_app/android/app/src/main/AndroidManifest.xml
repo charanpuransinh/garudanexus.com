@@ -1,4 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- BUG FIX (2026-07-25): Flutter's template only puts this in debug/profile
+         manifests (for the dev-tool hot-reload link) — a release build never
+         merges those, so the shipped APK had zero network permission at all.
+         Every request from the WebView (even the very first pin.html redirect)
+         was silently blocked at the OS level, with no error surfaced anywhere,
+         which is what produced a permanent black screen. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="flutter_app"
         android:name="${applicationName}"
