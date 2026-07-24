@@ -173,9 +173,13 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.symbol:
-        safe = args.symbol.replace(" ", "_").replace("^", "")
-        path = config.DATA_DIR / f"{safe}__{args.timeframe}.parquet"
-        df = pd.read_parquet(path)
+        stock_csv = config.DATA_DIR / "stock_daily" / f"{args.symbol}.csv"
+        if args.timeframe == "1day" and stock_csv.exists():
+            df = pd.read_csv(stock_csv, parse_dates=["date"]).set_index("date").rename_axis("datetime")
+        else:
+            safe = args.symbol.replace(" ", "_").replace("^", "")
+            path = config.DATA_DIR / f"{safe}__{args.timeframe}.parquet"
+            df = pd.read_parquet(path)
         print(f"असली data: {args.symbol}/{args.timeframe}, {len(df)} rows")
     else:
         df = make_synthetic_ohlcv()

@@ -88,6 +88,21 @@ class OptimizeRequest(BaseModel):
 
 # ---------------------------------------------------------------- data loading
 def _load_df(symbol: str, timeframe: str) -> pd.DataFrame:
+    # NIFTY-100 stocks' daily data now comes from the permanent, auto-updated
+    # pipeline (data/stock_daily/<SYMBOL>.csv — 7yr, refreshed by the daily
+    # cron, always real/never fabricated) instead of a one-off parquet the
+    # user had to fetch manually via data_fetcher.py. Only "1day" is covered
+    # by this pipeline — other timeframes and non-NIFTY-100 symbols (indices
+    # etc.) still fall back to the original parquet convention below.
+    if timeframe == "1day":
+        stock_csv = config.DATA_DIR / "stock_daily" / f"{symbol}.csv"
+        if stock_csv.exists():
+            df = pd.read_csv(stock_csv, parse_dates=["date"])
+            df = df.set_index("date").rename_axis("datetime")
+            if df.empty:
+                raise HTTPException(422, f"{symbol}/{timeframe} की stock_daily CSV खाली है")
+            return df
+
     safe = symbol.replace(" ", "_").replace("^", "")
     path = config.DATA_DIR / f"{safe}__{timeframe}.parquet"
     if not path.exists():
