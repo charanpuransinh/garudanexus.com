@@ -12,7 +12,9 @@ frontend यहीं POST करता है, यहाँ से rule_builder
 DigitalOcean पर PM2 से चलाना हो तो: pm2 start "uvicorn api_server:app --host 0.0.0.0 --port 8090" --name backtester-api
 """
 
+import json
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional
 
@@ -92,6 +94,37 @@ class OptimizeRequest(BaseModel):
     combo_size: int = 2         # grid mode के लिए
     indicator_pool: Optional[List[str]] = None
     top_n: int = 10
+
+
+# ---- added 2026-07-24: batch scan / strategy library / correlation ----
+class BatchBacktestRequest(BaseModel):
+    symbols: List[str]
+    timeframe: str = config.DEFAULT_TIMEFRAME
+    toggled_indicators: List[str] = []
+    rules: List[RuleIn] = []
+    target_pct: float = config.DEFAULT_TARGET_PCT
+    sl_pct: float = config.DEFAULT_SL_PCT
+    max_hold_bars: int = config.DEFAULT_MAX_HOLD_BARS
+    split_date: str = config.TRAIN_TEST_SPLIT_DATE
+    slippage_pct: float = config.DEFAULT_SLIPPAGE_PCT
+    commission_pct: float = config.DEFAULT_COMMISSION_PCT
+    position_capital_rs: float = config.DEFAULT_POSITION_CAPITAL_RS
+
+
+class SaveStrategyRequest(BaseModel):
+    name: str
+    code: str
+    func_name: str = "my_strategy"
+    target_pct: float = config.DEFAULT_TARGET_PCT
+    sl_pct: float = config.DEFAULT_SL_PCT
+    max_hold_bars: int = config.DEFAULT_MAX_HOLD_BARS
+    split_date: str = config.TRAIN_TEST_SPLIT_DATE
+
+
+class CorrelationRequest(BaseModel):
+    symbol: str
+    timeframe: str = config.DEFAULT_TIMEFRAME
+    indicators: List[str]
 
 
 # ---------------------------------------------------------------- data loading
@@ -253,6 +286,36 @@ def data_size():
     }
 
 
+# ---------------------------------------------------------------- backtest history (added 2026-07-24)
+MAX_HISTORY_ENTRIES = 200
+
+
+def _append_history(entry: dict):
+    """हर /api/backtest और /api/custom_backtest रन history file में जुड़ जाता है ताकि
+    dashboard का 'Backtest History' tab पिछले टेस्ट दिखा सके। History खराब/corrupt निकले
+    तो खाली मान लेता है — backtest का असली रिजल्ट देना कभी इसकी वजह से नहीं रुकना चाहिए।"""
+    history = []
+    if config.BACKTEST_HISTORY_FILE.exists():
+        try:
+            history = json.loads(config.BACKTEST_HISTORY_FILE.read_text(encoding="utf-8"))
+        except Exception:
+            history = []
+    history.append(entry)
+    history = history[-MAX_HISTORY_ENTRIES:]
+    config.BACKTEST_HISTORY_FILE.write_text(json.dumps(history, ensure_ascii=False), encoding="utf-8")
+
+
+@app.get("/api/backtest_history")
+def backtest_history():
+    if not config.BACKTEST_HISTORY_FILE.exists():
+        return {"history": []}
+    try:
+        history = json.loads(config.BACKTEST_HISTORY_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        history = []
+    return {"history": list(reversed(history))}   # नया सबसे ऊपर
+
+
 # ---------------------------------------------------------------- core: backtest
 @app.post("/api/backtest")
 def backtest(req: BacktestRequest):
@@ -278,6 +341,15 @@ def backtest(req: BacktestRequest):
         position_capital_rs=req.position_capital_rs,
     )
     result["rules_used"] = rules
+    try:
+        _append_history({
+            "timestamp": datetime.now(timezone.utc).isoformat(), "kind": "scanner",
+            "symbol": req.symbol, "timeframe": req.timeframe,
+            "label": " + ".join(req.toggled_indicators) or "custom rules",
+            "test": result["test"], "verdict": result["verdict"],
+        })
+    except Exception:
+        pass
     return result
 
 
@@ -316,6 +388,14 @@ def custom_backtest(req: CustomBacktestRequest):
         result["garuda_verdict"] = _garuda_validator.validate_custom(req.code, result)
     except Exception as e:
         result["garuda_verdict"] = {"final_score": None, "verdict": "N/A", "error": str(e)}
+    try:
+        _append_history({
+            "timestamp": datetime.now(timezone.utc).isoformat(), "kind": "custom",
+            "symbol": req.symbol, "timeframe": req.timeframe, "label": req.func_name,
+            "test": result["test"], "verdict": result["verdict"],
+        })
+    except Exception:
+        pass
     return result
 
 
@@ -330,6 +410,128 @@ def optimize(req: OptimizeRequest):
     else:
         results = opt.genetic_search(df, indicator_pool=req.indicator_pool, top_n=req.top_n)
     return {"mode": req.mode, "results": [r.summary() for r in results]}
+
+
+# ---------------------------------------------------------------- multi-symbol batch scan (added 2026-07-24)
+@app.post("/api/batch_backtest")
+def batch_backtest(req: BatchBacktestRequest):
+    """एक ही indicator-combo को कई symbols पर एक साथ चलाता है — हर symbol का अलग
+    train/test result मिलता है। कोई symbol data-missing या rule-error से fail हो
+    तो पूरा batch नहीं रुकता, बस उस symbol के आगे error दिख जाता है।"""
+    if req.toggled_indicators and not req.rules:
+        rules = rb.toggled_indicators_to_default_rules(req.toggled_indicators)
+    else:
+        rules = [r.dict(exclude_none=True) for r in req.rules]
+    if not rules:
+        raise HTTPException(400, "कम-से-कम एक indicator चुनो या rule दो")
+
+    results = []
+    for symbol in req.symbols:
+        try:
+            df = _load_df(symbol, req.timeframe)
+            signal = rb.build_signal(df, rules)
+            res = run_train_test(
+                df, signal, split_date=req.split_date,
+                target_pct=req.target_pct, sl_pct=req.sl_pct, max_hold_bars=req.max_hold_bars,
+                slippage_pct=req.slippage_pct, commission_pct=req.commission_pct,
+                position_capital_rs=req.position_capital_rs,
+            )
+            results.append({"symbol": symbol, "status": "ok", **res})
+        except HTTPException as e:
+            results.append({"symbol": symbol, "status": "error", "error": str(e.detail)})
+        except Exception as e:
+            results.append({"symbol": symbol, "status": "error", "error": str(e)})
+
+    ok_results = [r for r in results if r["status"] == "ok"]
+    ok_results.sort(key=lambda r: r["test"]["win_rate_%"], reverse=True)
+    error_results = [r for r in results if r["status"] != "ok"]
+    return {"rules_used": rules, "results": ok_results + error_results}
+
+
+# ---------------------------------------------------------------- saved strategy library (added 2026-07-24)
+def _load_strategy_library() -> dict:
+    if not config.STRATEGY_LIBRARY_FILE.exists():
+        return {}
+    try:
+        return json.loads(config.STRATEGY_LIBRARY_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+@app.get("/api/strategy_library")
+def list_strategy_library():
+    lib = _load_strategy_library()
+    items = [{"name": name, **meta} for name, meta in lib.items()]
+    items.sort(key=lambda x: x.get("saved_at", ""), reverse=True)
+    return {"strategies": items}
+
+
+@app.post("/api/strategy_library")
+def save_strategy_library(req: SaveStrategyRequest):
+    if not req.name.strip():
+        raise HTTPException(400, "strategy का नाम खाली नहीं हो सकता")
+    lib = _load_strategy_library()
+    lib[req.name] = {
+        "code": req.code, "func_name": req.func_name,
+        "target_pct": req.target_pct, "sl_pct": req.sl_pct,
+        "max_hold_bars": req.max_hold_bars, "split_date": req.split_date,
+        "saved_at": datetime.now(timezone.utc).isoformat(),
+    }
+    config.STRATEGY_LIBRARY_FILE.write_text(json.dumps(lib, ensure_ascii=False, indent=2), encoding="utf-8")
+    return {"status": "saved", "name": req.name}
+
+
+@app.delete("/api/strategy_library/{name}")
+def delete_strategy_library(name: str):
+    lib = _load_strategy_library()
+    if name not in lib:
+        raise HTTPException(404, f"'{name}' नाम की कोई saved strategy नहीं मिली")
+    del lib[name]
+    config.STRATEGY_LIBRARY_FILE.write_text(json.dumps(lib, ensure_ascii=False, indent=2), encoding="utf-8")
+    return {"status": "deleted", "name": name}
+
+
+# ---------------------------------------------------------------- indicator correlation check (added 2026-07-24)
+@app.post("/api/indicator_correlation")
+def indicator_correlation(req: CorrelationRequest):
+    """असली data पर हर चुने हुए indicator को compute करके pairwise Pearson correlation
+    निकालता है। >=0.85 वाले जोड़े 'high_correlation_pairs' में अलग से दिखाए जाते हैं —
+    इतने ज़्यादा correlated indicators साथ चुनना ज़्यादातर एक ही जानकारी दो बार गिनना है।"""
+    if len(req.indicators) < 2:
+        raise HTTPException(400, "कम-से-कम 2 indicators चुनो correlation देखने के लिए")
+    df = _load_df(req.symbol, req.timeframe)
+
+    series_map = {}
+    for name in req.indicators:
+        if name not in ind.INDICATOR_REGISTRY:
+            raise HTTPException(400, f"indicator '{name}' नहीं मिला")
+        try:
+            out = ind.compute(name, df)
+        except Exception as e:
+            raise HTTPException(400, f"'{name}' चलाने में दिक्कत: {e}")
+        if isinstance(out, pd.DataFrame):
+            out = out.iloc[:, 0]   # multi-column indicator (MACD आदि) -> पहला column लिया
+        series_map[name] = out
+
+    combined = pd.DataFrame(series_map).dropna()
+    if combined.empty:
+        raise HTTPException(422, "इन indicators का data overlap नहीं हुआ (सब NaN)")
+    corr = combined.corr()
+
+    cols = list(corr.columns)
+    matrix = [
+        {"indicator": row, **{col: round(float(corr.loc[row, col]), 3) for col in cols}}
+        for row in cols
+    ]
+    high_pairs = []
+    for i in range(len(cols)):
+        for j in range(i + 1, len(cols)):
+            val = float(corr.iloc[i, j])
+            if abs(val) >= 0.85:
+                high_pairs.append({"a": cols[i], "b": cols[j], "corr": round(val, 3)})
+    high_pairs.sort(key=lambda p: abs(p["corr"]), reverse=True)
+
+    return {"indicators": cols, "matrix": matrix, "high_correlation_pairs": high_pairs, "rows_used": len(combined)}
 
 
 # ---------------------------------------------------------------- dashboard (static)

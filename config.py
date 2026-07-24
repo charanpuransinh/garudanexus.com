@@ -13,6 +13,8 @@ DATA_DIR = BASE_DIR / "data"                 # OHLCV parquet files यहाँ 
 OPTIONS_DIR = BASE_DIR / "data" / "options"   # options chain data
 UNIVERSE_FILE = BASE_DIR / "universe.csv"
 RESULTS_DIR = BASE_DIR / "results"
+BACKTEST_HISTORY_FILE = RESULTS_DIR / "backtest_history.json"   # dashboard "Backtest History" tab
+STRATEGY_LIBRARY_FILE = RESULTS_DIR / "strategy_library.json"   # dashboard "Save/Load Strategy" library
 
 for d in (DATA_DIR, OPTIONS_DIR, RESULTS_DIR):
     d.mkdir(parents=True, exist_ok=True)
