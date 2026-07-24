@@ -77,8 +77,32 @@ def _static_check(source: str) -> None:
             raise SandboxError(f"'{node.attr}' जैसे dunder attributes की इजाज़त नहीं")
 
 
+def _restricted_import(name, globals=None, locals=None, fromlist=(), level=0):
+    """BUG FIX (2026-07-24): _static_check() explicitly allows `import
+    pandas`/numpy/indicators/math (its own error message says exactly
+    this), but _safe_builtins() previously omitted __import__ entirely
+    from the exec'd code's builtins — and Python's `import` STATEMENT
+    always calls __builtins__.__import__() under the hood, regardless of
+    which module. So ANY import statement (even of an allowed module)
+    crashed with "ImportError: __import__ not found", confirmed live via
+    /api/custom_backtest. __import__ itself stays in BLOCKED_NAMES for
+    the AST Name-node check (so user code can't call __import__(...)
+    directly as a function to sidestep this allowlist) - this is the
+    real, restricted implementation the `import` statement itself needs,
+    scoped to exactly the same ALLOWED_IMPORT_MODULES the static check
+    already enforces, so both checks agree instead of contradicting."""
+    top_level = name.split(".")[0]
+    if top_level not in ALLOWED_IMPORT_MODULES:
+        raise ImportError(
+            f"'{top_level}' import की इजाज़त नहीं — सिर्फ pandas, numpy, indicators, math चल सकते हैं"
+        )
+    return _builtins.__import__(name, globals, locals, fromlist, level)
+
+
 def _safe_builtins() -> dict:
-    return {name: getattr(_builtins, name) for name in SAFE_BUILTIN_NAMES if hasattr(_builtins, name)}
+    safe = {name: getattr(_builtins, name) for name in SAFE_BUILTIN_NAMES if hasattr(_builtins, name)}
+    safe["__import__"] = _restricted_import
+    return safe
 
 
 def _worker(source: str, func_name: str, df: pd.DataFrame, queue: "mp.Queue") -> None:
