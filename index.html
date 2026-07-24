@@ -273,9 +273,9 @@
 
 <header class="hero">
   <div>
-    <div class="eyebrow">Build Ledger — 18 Jul 2026</div>
+    <div class="eyebrow">Build Ledger — 24 Jul 2026</div>
     <h1>Algo Backtesting <em>Scanner</em></h1>
-    <p class="lede">50 इंडिकेटर, हर टाइमफ्रेम (3-मिनट से 1-हफ्ते तक), Index और Stock दोनों, 2018–2026 का डेटा — एक ही डैशबोर्ड से टॉगल करके तुरंत accuracy देखने के लिए बना सिस्टम। Backend + interactive dashboard + auto-optimizer तीनों अब live हैं — असली data आते ही चलने के लिए तैयार।</p>
+    <p class="lede">50 इंडिकेटर, हर टाइमफ्रेम (3-मिनट से 1-हफ्ते तक), Index और Stock दोनों, 2018–2026 का डेटा — एक ही डैशबोर्ड से टॉगल करके तुरंत accuracy देखने के लिए बना सिस्टम। असली NIFTY-100 7-साल data, real NIFTY/BankNifty options-expiry data, Sharpe/Sortino + equity-curve backtest engine, multi-symbol batch scan, saved strategy library — सब लाइव हैं।</p>
   </div>
 
   <div>
@@ -287,9 +287,9 @@
   </div>
 
   <div class="stat-row">
-    <div class="stat"><b>15 / 16</b><span>फाइलें तैयार</span></div>
+    <div class="stat"><b>20 / 20</b><span>फाइलें तैयार</span></div>
     <div class="stat"><b>50</b><span>इंडिकेटर लाइब्रेरी में</span></div>
-    <div class="stat"><b>2018–26</b><span>बैकटेस्ट रेंज</span></div>
+    <div class="stat"><b>100</b><span>NIFTY-100 stocks · 7yr data</span></div>
     <div class="stat"><b>6</b><span>सिस्टम लेयर</span></div>
   </div>
 </header>
@@ -335,12 +335,12 @@
   document.getElementById('tickerTape').innerHTML = tapeHtml + tapeHtml;
 
   const layers = [
-    ["01","Data Layer","OHLCV + Options data, Parquet/DuckDB में स्टोर, एक बार लोड — हमेशा वहीं से query।"],
+    ["01","Data Layer","NIFTY-100 stocks का असली 7-साल daily data (100/100 symbols) + NIFTY/BankNifty options-expiry data (2023-07-25 से आज तक) — रोज़ाना cron से auto-download + auto-commit-push।"],
     ["02","Indicator Library","50 indicators, हर एक standalone function, parameters adjustable।"],
-    ["03","Strategy Layer","मैनुअल logic (तुम्हारा) + UI से बने combinations — दोनों एक ही फॉर्मेट में।"],
-    ["04","Backtest Engine","Train/Test split के साथ — Win rate, Target/SL hit %, Drawdown निकालता है।"],
-    ["05","Optimizer","Grid/Genetic search, walk-forward validation — overfitting से बचाने के लिए।"],
-    ["06","Dashboard","Checkbox grid, timeframe dropdown, Stock/Index toggle, year slider, result panel।"],
+    ["03","Strategy Layer","मैनुअल logic + UI से बने combinations + पेस्ट किया custom Python code (sandboxed) — तीनों एक ही फॉर्मेट में result देते हैं।"],
+    ["04","Backtest Engine","Train/Test split, Win rate, Target/SL hit %, Drawdown, Sharpe/Sortino ratio, real equity curve, slippage+commission, rupee P&L position-sizing।"],
+    ["05","Optimizer","Grid/Genetic search, walk-forward validation, indicator-correlation redundancy check — overfitting और redundant-indicator दोनों से बचाने के लिए।"],
+    ["06","Dashboard","Checkbox grid, custom-code tester, saved strategy library, multi-symbol batch scan, backtest history, CSV/PDF export, live CPU/RAM load indicator।"],
   ];
   document.getElementById('pipeline').innerHTML = layers.map(([n,t,p]) => `
     <div class="layer">
@@ -350,21 +350,25 @@
 
   const files = [
     ["PROJECT_BLUEPRINT.md","पूरा प्लान और आर्किटेक्चर नोट","done"],
-    ["config.py","Timeframe, date range, symbol settings","done"],
+    ["config.py","Timeframe, date range, symbol settings, slippage/commission/position-sizing defaults","done"],
     ["indicators.py","50 इंडिकेटर लाइब्रेरी — टेस्ट पास","done"],
-    ["requirements.txt","Python dependencies","done"],
+    ["requirements.txt","Python dependencies (psutil सहित, load-indicator के लिए)","done"],
     ["universe.csv","Index/Stock symbol list (sample)","done"],
-    ["backtest_core.py","Backtest engine, train/test split — synthetic data पर टेस्ट पास","done"],
-    ["my_strategies.py","3 example manual strategies + तुम्हारी अपनी जोड़ने की जगह","done"],
+    ["backtest_core.py","Backtest engine — win-rate/drawdown + Sharpe/Sortino + equity curve + slippage/commission + rupee P&L","done"],
+    ["my_strategies.py","3 example manual strategies + अपनी जोड़ने की जगह","done"],
     ["rule_builder.py","UI combinations से strategy बनाना — AND/OR groups सपोर्ट","done"],
-    ["data_fetcher.py","OHLCV downloader (yfinance) — intraday history सीमित, broker API hook तैयार","done"],
+    ["strategy_sandbox.py","पेस्ट किए custom code को restricted sandbox में चलाना (pandas/numpy/indicators-only import)","done"],
+    ["garuda_validator.py","Custom strategy code + backtest result का automated quality-check (bugs, overfit-risk)","done"],
+    ["self_healing.py","पूरा system self-check — data files, हर indicator, backtest engine, sandbox — auto-fix जहाँ मुमकिन","done"],
+    ["data_fetcher.py","OHLCV downloader (yfinance) — broker API hook तैयार","done"],
+    ["scripts/download_stock_daily.py","NIFTY-100 सारे 100 stocks का 7-साल daily data — रोज़ाना cron से refresh","done"],
+    ["scripts/download_options_expiry.py + backfill_index_options_2023.py","NIFTY/BankNifty options-expiry data — 2023-07-25 से आज तक (187/114 expiries)","done"],
     ["run_demo.py","बिना data/internet पूरा pipeline verify करने वाला smoke test","done"],
     ["optimizer.py","Auto grid/genetic search — walk-forward scoring, overfit-penalty — टेस्ट पास","done"],
-    ["api_server.py","FastAPI backend — /api/backtest, /api/optimize लाइव endpoints","done"],
-    ["dashboard.html","Interactive checkbox grid + live result panel + optimizer panel","done"],
+    ["api_server.py","FastAPI backend — backtest, optimize, batch-scan, strategy-library, history, indicator-correlation, system-load endpoints","done"],
+    ["dashboard.html","Checkbox grid + custom-code tester + batch scan + strategy library + history + correlation-check + CSV/PDF export + load-indicator","done"],
     ["broker_adapter.py","Fyers/Dhan data-feed hooks (Shoonya=execution-only, Kotak=pending) — env-var configured","done"],
     ["news_fetcher.py","Free RSS market news + Gemini sentiment hook (main backend gemini_client से जुड़ने के लिए तैयार)","done"],
-    ["options_data_fetcher.py","Options historical data — data source चाहिए","blocked"],
   ];
   const statusLabel = {done:"तैयार", pending:"बाकी", blocked:"डेटा-सोर्स चाहिए"};
   document.getElementById('blotterBody').innerHTML = files.map(([f,d,s]) => `
@@ -388,9 +392,9 @@
 
   // ---- next-up callout ----
   const nextItems = [
-    ["असली data लाना", "data_fetcher.py --broker fyers चलाओ (env vars सेट होने पर) या बिना broker के yfinance से — दोनों में dashboard.html वैसा ही काम करेगा।"],
-    ["Fyers/Dhan SDK call भरना", "broker_adapter.py में TODO comment वाली जगह पर main backend के fyers_client.py/dhan_client.py से पैटर्न कॉपी करना — env vars: FYERS_APP_ID, FYERS_ACCESS_TOKEN, DHAN_CLIENT_ID, DHAN_ACCESS_TOKEN।"],
-    ["options_data_fetcher.py", "Data-source तय होने के बाद ही शुरू होगा — NSE bhavcopy (मुफ्त, raw) या paid vendor में से एक चुनना होगा।"],
+    ["Fyers/Dhan SDK call भरना", "broker_adapter.py में अभी भी TODO/NotImplementedError वाली जगह हैं — main backend के fyers_client.py/dhan_client.py से पैटर्न कॉपी करना बाकी है। env vars: FYERS_APP_ID, FYERS_ACCESS_TOKEN, DHAN_CLIENT_ID, DHAN_ACCESS_TOKEN।"],
+    ["SENSEX options data", "NIFTY और BankNifty का options-expiry data मिल चुका है, पर SENSEX BSE-listed है इसलिए NSE bhavcopy में structurally नहीं आ सकता — अलग BSE-specific data source चाहिए होगा।"],
+    ["Commodity (Crude Oil, Natural Gas) historical data", "MCX और investing.com दोनों datacenter IP पर edge-level block कर रहे हैं (Akamai) — अभी तक कोई काम करने वाला free data-source नहीं मिला।"],
   ];
   document.getElementById('nextUp').innerHTML = nextItems.map(([t,d], i) => `
     <div class="row">
