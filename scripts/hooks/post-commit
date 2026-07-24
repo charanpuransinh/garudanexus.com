@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 # Auto-push every commit — so a completed commit never sits unpushed.
 # Runs in the background so a large/slow push doesn't block `git commit`
 # itself (this repo carries multi-hundred-MB CSV data pushes).
