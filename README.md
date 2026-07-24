@@ -69,11 +69,12 @@ dataset to read from.
 |---|---|---|---|
 | `data/nifty100_symbols.csv` | NIFTY-100 constituent list: `symbol,company_name,industry,isin` | NSE official (`niftyindices.com`) | current constituents |
 | `data/stock_daily/<SYMBOL>.csv` | Daily OHLCV: `date,open,high,low,close,volume` | Yahoo Finance (`yfinance`, `<SYMBOL>.NS`) | 7 years, one file per NIFTY-100 stock |
-| `data/options_expiry/<SYMBOL>.csv` | Strike-wise CE/PE daily data: `TradDt,TckrSymb,XpryDt,StrkPric,OptnTp,OpnPric,HghPric,LwPric,ClsPric,SttlmPric,OpnIntrst,ChngInOpnIntrst,TtlTradgVol,UndrlygPric` | NSE official UDiFF Common Bhavcopy Final (`nsearchives.nseindia.com`) | 3 years, one file per NIFTY-100 stock + NIFTY/BANKNIFTY |
+| `data/options_expiry/index_options/{NIFTY,BANKNIFTY}.csv.gz` | Strike-wise CE/PE daily data (index options — what our scalping strategy actually uses): `TradDt,TckrSymb,XpryDt,StrkPric,OptnTp,OpnPric,HghPric,LwPric,ClsPric,SttlmPric,OpnIntrst,ChngInOpnIntrst,TtlTradgVol,UndrlygPric` | NSE UDiFF Common Bhavcopy Final (2024-01-01 onward) + NSE's older per-day bhavcopy archive (2023-07-25..2023-12-31, `UndrlygPric` blank for that stretch — not present in the old format) | **3 years**, 2023-07-25 to present. NIFTY: weekly cadence throughout. BANKNIFTY: mostly monthly-only (NSE discontinued BankNifty weekly contracts in 2023 — not a bug). Gzip'd: NIFTY alone hits ~100MB/3yr uncompressed, over GitHub's hard push limit. |
+| `data/options_expiry/<SYMBOL>.csv` | Same schema as above, but **stock** options (not index) — lower priority, not used by the current strategy | NSE UDiFF Common Bhavcopy Final | 2024-01-01 to present only (not backfilled further — see below) |
 
-**Known gap**: SENSEX has no file in `data/options_expiry/` — SENSEX is
-BSE-listed, so it never appears in NSE's bhavcopy. A BSE-specific source
-would be needed to cover it; not built.
+**Known gaps**:
+- SENSEX has no file anywhere in `data/options_expiry/` — SENSEX is BSE-listed, so it never appears in NSE's bhavcopy. A BSE-specific source (bseindia.com) would be needed; not built.
+- Stock-option CSVs (not index) only cover 2024-01-01 onward — the same 2023 H2 backfill done for NIFTY/BANKNIFTY (`scripts/backfill_index_options_2023.py`) hasn't been extended to the 97 stock symbols, since they're not used by the current strategy. Same NSE old-archive approach would work if needed later.
 
 **How it stays current**: `scripts/daily_data_update.sh` runs every
 weekday at 19:00 IST via the server's crontab (well after both market
