@@ -8,5 +8,13 @@ trading-bot/results/
 # regenerable/re-copyable, not source. Root-level data/ is a copy used by
 # the currently-configured DATA_DIR (config.py resolves relative to its own
 # location, now root) — same reason as the old trading-bot/data/ entry above.
-data/
 results/
+
+# data/ used to be blanket-ignored (see history above), but the
+# stock_daily/options_expiry/symbol-list pipeline (2026-07-24) is meant to
+# be permanently committed to this repo, not just live on this server —
+# so only the pieces that are NOT part of that pipeline stay ignored.
+data/*
+!data/nifty100_symbols.csv
+!data/stock_daily/
+!data/options_expiry/
