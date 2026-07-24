@@ -208,6 +208,7 @@
     <button class="tab-btn active" data-tab="scanner">1 · Indicator Scanner</button>
     <button class="tab-btn" data-tab="custom">2 · Custom Strategy Tester</button>
     <button class="tab-btn" data-tab="health">3 · System Health</button>
+    <button class="tab-btn" data-tab="tools">4 · Batch / History / Correlation</button>
   </nav>
 </header>
 
@@ -240,6 +241,18 @@
         <label>Train/Test Split</label>
         <input type="date" id="splitDate" value="2023-12-31">
       </div>
+      <div>
+        <label>Slippage %</label>
+        <input type="number" id="slippagePct" value="0.05" step="0.01">
+      </div>
+      <div>
+        <label>Commission % (round-trip)</label>
+        <input type="number" id="commissionPct" value="0.03" step="0.01">
+      </div>
+      <div>
+        <label>Position Capital (₹)</label>
+        <input type="number" id="positionCapital" value="50000" step="1000">
+      </div>
     </div>
   </div>
 
@@ -255,7 +268,13 @@
   </div>
 
   <div class="card">
-    <h2>Result</h2>
+    <div class="action-row" style="justify-content:space-between; margin-top:0;">
+      <h2 style="margin-bottom:0;">Result</h2>
+      <div class="action-row" id="resultExportRow" style="margin-top:0; display:none;">
+        <button class="btn secondary" id="exportCsvBtn">CSV Export</button>
+        <button class="btn secondary" id="exportPdfBtn">PDF Export (Print)</button>
+      </div>
+    </div>
     <div id="resultArea"><div class="empty-note">Indicators चुनकर "Run Backtest" दबाओ — यहाँ Train/Test win-rate, target/SL hit%, drawdown लाइव दिखेगा।</div></div>
   </div>
 
@@ -303,6 +322,18 @@
         <label>Train/Test Split</label>
         <input type="date" id="cSplitDate" value="2023-12-31">
       </div>
+      <div>
+        <label>Slippage %</label>
+        <input type="number" id="cSlippagePct" value="0.05" step="0.01">
+      </div>
+      <div>
+        <label>Commission % (round-trip)</label>
+        <input type="number" id="cCommissionPct" value="0.03" step="0.01">
+      </div>
+      <div>
+        <label>Position Capital (₹)</label>
+        <input type="number" id="cPositionCapital" value="50000" step="1000">
+      </div>
     </div>
   </div>
 
@@ -331,10 +362,31 @@
       <span class="selected-count" id="customStatus"></span>
     </div>
     <div class="code-hint">Timeout: 20 सेकंड। कोड 20,000 अक्षर तक। Error आए तो नीचे साफ़ बताया जाएगा — कोई भी गलती से पूरा server नहीं रुकेगा।</div>
+
+    <div class="func-name-row" style="margin-top:20px; border-top:1px solid var(--panel-line); padding-top:16px;">
+      <div>
+        <label>Strategy को नाम देकर Save करो</label>
+        <input type="text" id="strategySaveName" placeholder="जैसे: rsi-ema-combo-v1">
+      </div>
+      <button class="btn secondary" id="saveStrategyBtn">Library में Save करो</button>
+      <div style="min-width:220px; flex:1;">
+        <label>Saved Strategies (Load करने के लिए चुनो)</label>
+        <select id="strategyLibrarySelect"><option value="">-- कोई saved strategy नहीं --</option></select>
+      </div>
+      <button class="btn secondary" id="loadStrategyBtn">Load करो</button>
+      <button class="btn secondary" id="deleteStrategyBtn">Delete करो</button>
+      <span class="selected-count" id="libraryStatus"></span>
+    </div>
   </div>
 
   <div class="card">
-    <h2>Result</h2>
+    <div class="action-row" style="justify-content:space-between; margin-top:0;">
+      <h2 style="margin-bottom:0;">Result</h2>
+      <div class="action-row" id="customResultExportRow" style="margin-top:0; display:none;">
+        <button class="btn secondary" id="exportCustomCsvBtn">CSV Export</button>
+        <button class="btn secondary" id="exportCustomPdfBtn">PDF Export (Print)</button>
+      </div>
+    </div>
     <div id="customResultArea"><div class="empty-note">ऊपर code पेस्ट करके "Strategy Test करो" दबाओ — यहाँ Train/Test win-rate, target/SL hit%, timeout%, drawdown, और overfit-check दिखेगा।</div></div>
   </div>
 
@@ -361,6 +413,59 @@
   <div class="card">
     <h2 style="font-size:14px; text-transform:uppercase; letter-spacing:0.06em; color:var(--muted);">रोज़ाना अपने-आप चलाने के लिए</h2>
     <p class="card-sub" style="margin-bottom:0;">Dashboard से manual चलाना काफ़ी ना लगे तो टर्मिनल पर <code style="color:var(--amber);">python self_healing.py</code> को cron/pm2 से हर 15 मिनट पर चला सकते हो — यह अपने-आप results/self_healing_log.json में history रखता है और कुछ लाल (FAIL) मिले तो exit code 1 देता है, जिस पर pm2/cron अलर्ट भेज सकता है। पूरी जानकारी SELF_HEALING_SETUP.md में है।</p>
+  </div>
+
+</main>
+
+<main id="tab-tools">
+
+  <div class="card">
+    <h2>Multi-Symbol Batch Scan</h2>
+    <p class="card-sub">एक ही indicator-combo को कई symbols पर एक साथ चलाओ — नीचे चुने हुए indicators (Scanner tab वाले) इस्तेमाल होंगे। Test win-rate के हिसाब से सबसे ऊपर सबसे अच्छा symbol दिखेगा।</p>
+    <div class="controls-grid">
+      <div style="grid-column:1/-1;">
+        <label>Symbols चुनो (Ctrl/Cmd दबाकर कई चुन सकते हो)</label>
+        <select id="batchSymbolSelect" multiple size="8" style="height:auto;"></select>
+      </div>
+    </div>
+    <div class="action-row">
+      <button class="btn" id="batchScanBtn">Batch Scan चलाओ</button>
+      <span class="selected-count" id="batchStatus">Scanner tab पर पहले indicators चुनो</span>
+    </div>
+    <div id="batchResultArea" style="margin-top:14px;"><div class="empty-note">Symbols चुनकर "Batch Scan चलाओ" दबाओ।</div></div>
+  </div>
+
+  <div class="card">
+    <h2>Indicator Correlation Check</h2>
+    <p class="card-sub">कई indicators साथ चुनने से पहले देख लो — अगर दो indicators >=0.85 correlated हैं तो वो असल में एक ही जानकारी दो बार गिन रहे हैं, combo बनाने में बेकार है।</p>
+    <div class="controls-grid">
+      <div>
+        <label>Symbol</label>
+        <select id="corrSymbolSelect"><option>लोड हो रहा है...</option></select>
+      </div>
+      <div>
+        <label>Timeframe</label>
+        <select id="corrTimeframeSelect"></select>
+      </div>
+      <div style="grid-column:1/-1;">
+        <label>Indicators चुनो (कम-से-कम 2, Ctrl/Cmd दबाकर कई चुनो)</label>
+        <select id="corrIndicatorSelect" multiple size="8" style="height:auto;"></select>
+      </div>
+    </div>
+    <div class="action-row">
+      <button class="btn" id="corrCheckBtn">Correlation चेक करो</button>
+      <span class="selected-count" id="corrStatus"></span>
+    </div>
+    <div id="corrResultArea" style="margin-top:14px;"><div class="empty-note">Indicators चुनकर "Correlation चेक करो" दबाओ।</div></div>
+  </div>
+
+  <div class="card">
+    <div class="action-row" style="justify-content:space-between; margin-top:0;">
+      <h2 style="margin-bottom:0;">Backtest History</h2>
+      <button class="btn secondary" id="refreshHistoryBtn">ताज़ा करो</button>
+    </div>
+    <p class="card-sub">पिछले सभी backtest runs (Scanner + Custom Strategy दोनों) की history — server पर JSON file में सुरक्षित रहती है, आख़िरी 200 runs।</p>
+    <div id="historyResultArea"><div class="empty-note">लोड हो रहा है...</div></div>
   </div>
 
 </main>
@@ -528,6 +633,8 @@
       const opts = rows.map(r => `<option value="${r.symbol}">${r.symbol} (${r.type})</option>`).join('');
       document.getElementById('symbolSelect').innerHTML = opts;
       document.getElementById('cSymbolSelect').innerHTML = opts;
+      document.getElementById('batchSymbolSelect').innerHTML = opts;
+      document.getElementById('corrSymbolSelect').innerHTML = opts;
     }catch(e){
       document.getElementById('symbolSelect').innerHTML = '<option>universe.csv लोड नहीं हुई</option>';
       document.getElementById('cSymbolSelect').innerHTML = '<option>universe.csv लोड नहीं हुई</option>';
@@ -540,6 +647,7 @@
       const opts = tf.timeframes.map(t => `<option value="${t}" ${t===tf.default?'selected':''}>${t}</option>`).join('');
       document.getElementById('timeframeSelect').innerHTML = opts;
       document.getElementById('cTimeframeSelect').innerHTML = opts;
+      document.getElementById('corrTimeframeSelect').innerHTML = opts;
     }catch(e){}
   }
 
@@ -549,6 +657,8 @@
       allIndicators = data.indicators;
       document.getElementById('indicatorCount').textContent = data.count;
       renderIndicatorGrid(allIndicators);
+      document.getElementById('corrIndicatorSelect').innerHTML =
+        allIndicators.map(i => `<option value="${i.name}">${i.name}</option>`).join('');
     }catch(e){
       document.getElementById('indicatorGrid').innerHTML = '<div class="empty-note">indicators.py से list नहीं मिली</div>';
     }
@@ -584,6 +694,37 @@
     renderIndicatorGrid(allIndicators);
   });
 
+  // Equity curve chart (added 2026-07-24) — real per-trade cumulative equity from
+  // backtest_core.py's _equity_curve(), rendered as a plain inline SVG polyline.
+  // No charting library — this stays a static HTML page, zero external dependencies.
+  function renderEquityChart(curve){
+    if(!curve || curve.length < 2){
+      return '<div class="empty-note" style="padding:10px 0;">Equity curve के लिए कम-से-कम 2 trades चाहिए</div>';
+    }
+    const w = 100, h = 32, pad = 2;   // viewBox units — scales to container via CSS width:100%
+    const values = curve.map(c => c.equity_pct);
+    const minV = Math.min(...values), maxV = Math.max(...values);
+    const range = (maxV - minV) || 1;
+    const stepX = (w - 2 * pad) / (curve.length - 1);
+    const points = curve.map((c, i) => {
+      const x = pad + i * stepX;
+      const y = h - pad - ((c.equity_pct - minV) / range) * (h - 2 * pad);
+      return `${x.toFixed(2)},${y.toFixed(2)}`;
+    }).join(' ');
+    const up = curve[curve.length - 1].equity_pct >= curve[0].equity_pct;
+    const color = up ? '#4FA695' : '#B5624B';
+    return `
+      <svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="width:100%; height:70px; margin-top:10px; background:var(--panel); border:1px solid var(--panel-line); border-radius:3px;">
+        <polyline points="${points}" fill="none" stroke="${color}" stroke-width="0.6" vector-effect="non-scaling-stroke"/>
+      </svg>
+      <div style="display:flex; justify-content:space-between; font-family:'IBM Plex Mono', monospace; font-size:10.5px; color:var(--muted); margin-top:3px;">
+        <span>शुरुआत: ${curve[0].equity_pct}%</span>
+        <span>${curve.length} trades</span>
+        <span>अंत: ${curve[curve.length - 1].equity_pct}%</span>
+      </div>
+    `;
+  }
+
   function renderMetrics(m){
     return `
       <div class="metric"><span>Trades</span><b>${m.trades}</b></div>
@@ -593,6 +734,10 @@
       <div class="metric"><span>Timeout</span><b>${m['timeout_%']}%</b></div>
       <div class="metric"><span>Avg Return</span><b>${m['avg_return_%']}%</b></div>
       <div class="metric"><span>Max Drawdown</span><b>${m['max_drawdown_%']}%</b></div>
+      <div class="metric"><span>Sharpe (per-trade)</span><b>${m.sharpe_ratio_per_trade}</b></div>
+      <div class="metric"><span>Sortino (per-trade)</span><b>${m.sortino_ratio_per_trade}</b></div>
+      <div class="metric"><span>Total P&L (₹${m.position_capital_rs}/trade)</span><b>₹${m.total_pnl_rs}</b></div>
+      ${renderEquityChart(m.equity_curve)}
     `;
   }
 
@@ -630,7 +775,10 @@
       </div>`;
   }
 
-  function renderResultInto(targetId, res){
+  // targetId -> {result, exportRowId} — CSV/PDF export buttons read from here (added 2026-07-24)
+  const lastResults = {};
+
+  function renderResultInto(targetId, res, exportRowId){
     const gap = res.overfit_gap_win_rate_pts;
     const verdictClass = res.verdict.includes('⚠️') ? 'warn' : 'good';
     document.getElementById(targetId).innerHTML = `
@@ -647,6 +795,65 @@
       <div class="verdict ${verdictClass}">${res.verdict} — overfit gap: ${gap} pts (train winrate − test winrate)</div>
       ${renderGarudaBlock(res.garuda_verdict)}
     `;
+    if(exportRowId){
+      lastResults[targetId] = res;
+      document.getElementById(exportRowId).style.display = 'flex';
+    }
+  }
+
+  function resultToCsvRows(res){
+    const rows = [['period','trades','win_rate_%','target_hit_%','sl_hit_%','timeout_%',
+      'avg_return_%','max_drawdown_%','sharpe_ratio_per_trade','sortino_ratio_per_trade',
+      'total_pnl_rs','position_capital_rs']];
+    ['train','test'].forEach(p => {
+      const m = res[p];
+      rows.push([m.period, m.trades, m['win_rate_%'], m['target_hit_%'], m['sl_hit_%'], m['timeout_%'],
+        m['avg_return_%'], m['max_drawdown_%'], m.sharpe_ratio_per_trade, m.sortino_ratio_per_trade,
+        m.total_pnl_rs, m.position_capital_rs]);
+    });
+    rows.push([]);
+    rows.push(['test_trade_num', 'test_equity_pct', 'test_entry_time']);
+    (res.test.equity_curve || []).forEach(e => rows.push([e.trade_num, e.equity_pct, e.time]));
+    return rows;
+  }
+
+  function downloadCsv(filename, rows){
+    const csv = rows.map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  // PDF export (added 2026-07-24) — no PDF library added (zero external deps kept),
+  // opens a plain print-ready window and triggers the browser's native
+  // print-to-PDF, which every browser supports out of the box.
+  function exportResultPdf(res, title){
+    const rows = resultToCsvRows(res);
+    const tableRows = rows.map(r => r.length
+      ? `<tr>${r.map(c => `<td style="padding:5px 10px; border:1px solid #999;">${c}</td>`).join('')}</tr>`
+      : '<tr><td colspan="12" style="height:10px; border:none;"></td></tr>'
+    ).join('');
+    const win = window.open('', '_blank', 'width=850,height=900');
+    win.document.write(`
+      <html><head><title>${title}</title>
+      <style>
+        body{ font-family:sans-serif; padding:24px; color:#111; }
+        table{ border-collapse:collapse; margin-top:12px; font-size:12px; }
+        h2{ margin-bottom:2px; }
+        p{ color:#555; font-size:12px; }
+      </style></head>
+      <body>
+        <h2>${title}</h2>
+        <p>Generated: ${new Date().toString()}</p>
+        <table>${tableRows}</table>
+      </body></html>
+    `);
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 300);
   }
 
   document.getElementById('runBtn').addEventListener('click', async () => {
@@ -664,11 +871,26 @@
         sl_pct: parseFloat(document.getElementById('slPct').value),
         max_hold_bars: parseInt(document.getElementById('maxHold').value),
         split_date: document.getElementById('splitDate').value,
+        slippage_pct: parseFloat(document.getElementById('slippagePct').value),
+        commission_pct: parseFloat(document.getElementById('commissionPct').value),
+        position_capital_rs: parseFloat(document.getElementById('positionCapital').value),
       });
-      renderResultInto('resultArea', res);
+      renderResultInto('resultArea', res, 'resultExportRow');
     }catch(e){
       document.getElementById('resultArea').innerHTML = `<div class="error-box">${e.message}</div>`;
+      document.getElementById('resultExportRow').style.display = 'none';
     }
+  });
+
+  document.getElementById('exportCsvBtn').addEventListener('click', () => {
+    const res = lastResults['resultArea'];
+    if(!res) return;
+    downloadCsv(`backtest_${document.getElementById('symbolSelect').value}.csv`, resultToCsvRows(res));
+  });
+  document.getElementById('exportPdfBtn').addEventListener('click', () => {
+    const res = lastResults['resultArea'];
+    if(!res) return;
+    exportResultPdf(res, `Backtest Report — ${document.getElementById('symbolSelect').value}`);
   });
 
   document.getElementById('optimizeBtn').addEventListener('click', async () => {
@@ -726,14 +948,206 @@
         sl_pct: parseFloat(document.getElementById('cSlPct').value),
         max_hold_bars: parseInt(document.getElementById('cMaxHold').value),
         split_date: document.getElementById('cSplitDate').value,
+        slippage_pct: parseFloat(document.getElementById('cSlippagePct').value),
+        commission_pct: parseFloat(document.getElementById('cCommissionPct').value),
+        position_capital_rs: parseFloat(document.getElementById('cPositionCapital').value),
       });
-      renderResultInto('customResultArea', res);
+      renderResultInto('customResultArea', res, 'customResultExportRow');
+      status.textContent = 'पूरा हुआ';
+    }catch(e){
+      area.innerHTML = `<div class="error-box">${e.message}</div>`;
+      document.getElementById('customResultExportRow').style.display = 'none';
+      status.textContent = 'error आया';
+    }
+  });
+
+  document.getElementById('exportCustomCsvBtn').addEventListener('click', () => {
+    const res = lastResults['customResultArea'];
+    if(!res) return;
+    downloadCsv(`custom_backtest_${document.getElementById('cSymbolSelect').value}.csv`, resultToCsvRows(res));
+  });
+  document.getElementById('exportCustomPdfBtn').addEventListener('click', () => {
+    const res = lastResults['customResultArea'];
+    if(!res) return;
+    exportResultPdf(res, `Custom Strategy Report — ${document.getElementById('cSymbolSelect').value}`);
+  });
+
+  // ---- strategy library (save/load, added 2026-07-24) ----
+  async function refreshStrategyLibrary(){
+    try{
+      const data = await apiGet('/api/strategy_library');
+      window._strategyLibraryData = data.strategies;
+      const sel = document.getElementById('strategyLibrarySelect');
+      sel.innerHTML = data.strategies.length
+        ? data.strategies.map(s => `<option value="${s.name}">${s.name} (${s.saved_at.slice(0,16).replace('T',' ')})</option>`).join('')
+        : '<option value="">-- कोई saved strategy नहीं --</option>';
+    }catch(e){
+      document.getElementById('libraryStatus').textContent = 'library लोड नहीं हुई';
+    }
+  }
+
+  document.getElementById('saveStrategyBtn').addEventListener('click', async () => {
+    const name = document.getElementById('strategySaveName').value.trim();
+    const status = document.getElementById('libraryStatus');
+    if(!name){ status.textContent = 'पहले नाम डालो'; return; }
+    status.textContent = 'save हो रहा है...';
+    try{
+      await apiPost('/api/strategy_library', {
+        name,
+        code: document.getElementById('strategyCode').value,
+        func_name: document.getElementById('funcName').value || 'my_strategy',
+        target_pct: parseFloat(document.getElementById('cTargetPct').value),
+        sl_pct: parseFloat(document.getElementById('cSlPct').value),
+        max_hold_bars: parseInt(document.getElementById('cMaxHold').value),
+        split_date: document.getElementById('cSplitDate').value,
+      });
+      status.textContent = `'${name}' save हो गई`;
+      document.getElementById('strategySaveName').value = '';
+      refreshStrategyLibrary();
+    }catch(e){
+      status.textContent = `error: ${e.message}`;
+    }
+  });
+
+  document.getElementById('loadStrategyBtn').addEventListener('click', () => {
+    const name = document.getElementById('strategyLibrarySelect').value;
+    const status = document.getElementById('libraryStatus');
+    if(!name){ status.textContent = 'पहले कोई strategy चुनो'; return; }
+    const s = (window._strategyLibraryData || []).find(x => x.name === name);
+    if(!s){ status.textContent = 'strategy नहीं मिली, ताज़ा करो'; return; }
+    document.getElementById('strategyCode').value = s.code;
+    document.getElementById('funcName').value = s.func_name;
+    document.getElementById('cTargetPct').value = s.target_pct;
+    document.getElementById('cSlPct').value = s.sl_pct;
+    document.getElementById('cMaxHold').value = s.max_hold_bars;
+    document.getElementById('cSplitDate').value = s.split_date;
+    status.textContent = `'${name}' load हो गई`;
+  });
+
+  document.getElementById('deleteStrategyBtn').addEventListener('click', async () => {
+    const name = document.getElementById('strategyLibrarySelect').value;
+    const status = document.getElementById('libraryStatus');
+    if(!name){ status.textContent = 'पहले कोई strategy चुनो'; return; }
+    try{
+      const res = await fetch(API + '/api/strategy_library/' + encodeURIComponent(name), {method: 'DELETE'});
+      const data = await res.json();
+      if(!res.ok) throw new Error(data.detail || 'delete नहीं हुआ');
+      status.textContent = `'${name}' delete हो गई`;
+      refreshStrategyLibrary();
+    }catch(e){
+      status.textContent = `error: ${e.message}`;
+    }
+  });
+
+  // ---- multi-symbol batch scan (added 2026-07-24) ----
+  document.getElementById('batchScanBtn').addEventListener('click', async () => {
+    const area = document.getElementById('batchResultArea');
+    const status = document.getElementById('batchStatus');
+    const symbols = Array.from(document.getElementById('batchSymbolSelect').selectedOptions).map(o => o.value);
+    if(symbols.length === 0){ status.textContent = 'कम-से-कम एक symbol चुनो'; return; }
+    if(selectedIndicators.size === 0){ status.textContent = 'Scanner tab पर पहले indicators चुनो'; return; }
+    status.textContent = 'चल रहा है...';
+    area.innerHTML = '<div class="loading">Batch scan चल रहा है...</div>';
+    try{
+      const res = await apiPost('/api/batch_backtest', {
+        symbols,
+        timeframe: document.getElementById('timeframeSelect').value,
+        toggled_indicators: Array.from(selectedIndicators),
+        target_pct: parseFloat(document.getElementById('targetPct').value),
+        sl_pct: parseFloat(document.getElementById('slPct').value),
+        max_hold_bars: parseInt(document.getElementById('maxHold').value),
+        split_date: document.getElementById('splitDate').value,
+        slippage_pct: parseFloat(document.getElementById('slippagePct').value),
+        commission_pct: parseFloat(document.getElementById('commissionPct').value),
+        position_capital_rs: parseFloat(document.getElementById('positionCapital').value),
+      });
+      area.innerHTML = `
+        <table class="opt-results">
+          <thead><tr><th>Symbol</th><th>Status</th><th>Test Win Rate</th><th>Test Trades</th><th>Test P&L (₹)</th><th>Verdict</th></tr></thead>
+          <tbody>
+            ${res.results.map(r => r.status === 'ok' ? `
+              <tr>
+                <td>${r.symbol}</td><td>✅</td>
+                <td>${r.test['win_rate_%']}%</td>
+                <td>${r.test.trades}</td>
+                <td>₹${r.test.total_pnl_rs}</td>
+                <td>${r.verdict}</td>
+              </tr>` : `
+              <tr><td>${r.symbol}</td><td>❌</td><td colspan="4" style="color:var(--red);">${r.error}</td></tr>`
+            ).join('')}
+          </tbody>
+        </table>`;
+      status.textContent = `${res.results.length} symbols चेक हुए`;
+    }catch(e){
+      area.innerHTML = `<div class="error-box">${e.message}</div>`;
+      status.textContent = 'error आया';
+    }
+  });
+
+  // ---- indicator correlation check (added 2026-07-24) ----
+  document.getElementById('corrCheckBtn').addEventListener('click', async () => {
+    const area = document.getElementById('corrResultArea');
+    const status = document.getElementById('corrStatus');
+    const indicators = Array.from(document.getElementById('corrIndicatorSelect').selectedOptions).map(o => o.value);
+    if(indicators.length < 2){ status.textContent = 'कम-से-कम 2 indicators चुनो'; return; }
+    status.textContent = 'चल रहा है...';
+    area.innerHTML = '<div class="loading">Correlation निकाला जा रहा है...</div>';
+    try{
+      const res = await apiPost('/api/indicator_correlation', {
+        symbol: document.getElementById('corrSymbolSelect').value,
+        timeframe: document.getElementById('corrTimeframeSelect').value,
+        indicators,
+      });
+      const header = `<tr><th></th>${res.indicators.map(i => `<th>${i}</th>`).join('')}</tr>`;
+      const body = res.matrix.map(row => `
+        <tr><th style="text-align:left; color:var(--muted); font-size:10px; text-transform:uppercase;">${row.indicator}</th>${res.indicators.map(col => {
+          const v = row[col];
+          const isHigh = col !== row.indicator && Math.abs(v) >= 0.85;
+          return `<td style="${isHigh ? 'color:var(--red); font-weight:600;' : ''}">${v}</td>`;
+        }).join('')}</tr>`).join('');
+      const highList = res.high_correlation_pairs.length
+        ? `<div class="verdict warn" style="margin-top:12px;">⚠️ High correlation pairs: ${res.high_correlation_pairs.map(p => `${p.a}↔${p.b} (${p.corr})`).join(', ')}</div>`
+        : `<div class="verdict good" style="margin-top:12px;">✅ कोई भी pair 0.85 से ज़्यादा correlated नहीं — सब अलग जानकारी दे रहे हैं</div>`;
+      area.innerHTML = `<table class="opt-results"><thead>${header}</thead><tbody>${body}</tbody></table>${highList}
+        <div class="card-sub" style="margin-top:8px;">${res.rows_used} rows का data इस्तेमाल हुआ</div>`;
       status.textContent = 'पूरा हुआ';
     }catch(e){
       area.innerHTML = `<div class="error-box">${e.message}</div>`;
       status.textContent = 'error आया';
     }
   });
+
+  // ---- backtest history (added 2026-07-24) ----
+  async function loadHistory(){
+    const area = document.getElementById('historyResultArea');
+    try{
+      const data = await apiGet('/api/backtest_history');
+      if(!data.history.length){
+        area.innerHTML = '<div class="empty-note">अभी तक कोई backtest history नहीं — Scanner या Custom Strategy tab पर एक बार backtest चलाओ।</div>';
+        return;
+      }
+      area.innerHTML = `
+        <table class="opt-results">
+          <thead><tr><th>समय</th><th>Type</th><th>Symbol</th><th>Timeframe</th><th>Label</th><th>Test Win Rate</th><th>Test Trades</th><th>Verdict</th></tr></thead>
+          <tbody>
+            ${data.history.map(h => `
+              <tr>
+                <td>${h.timestamp.replace('T',' ').slice(0,16)}</td>
+                <td>${h.kind}</td>
+                <td>${h.symbol}</td>
+                <td>${h.timeframe}</td>
+                <td>${h.label}</td>
+                <td>${h.test['win_rate_%']}%</td>
+                <td>${h.test.trades}</td>
+                <td>${h.verdict}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>`;
+    }catch(e){
+      area.innerHTML = `<div class="error-box">${e.message}</div>`;
+    }
+  }
+  document.getElementById('refreshHistoryBtn').addEventListener('click', loadHistory);
 
   // ---- init ----
   checkHealth();
@@ -743,6 +1157,8 @@
   loadTimeframes();
   loadIndicators();
   loadDataSize();
+  refreshStrategyLibrary();
+  loadHistory();
 </script>
 
 </body>
