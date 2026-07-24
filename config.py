@@ -46,6 +46,11 @@ DEFAULT_TARGET_PCT = 1.0     # target % move
 DEFAULT_SL_PCT = 0.5         # stoploss % move
 DEFAULT_MAX_HOLD_BARS = 20   # कितने bars तक trade होल्ड करनी है अगर target/SL ना लगे
 
+# ---------- Backtest realism: slippage, commission, position sizing (added 2026-07-24) ----------
+DEFAULT_SLIPPAGE_PCT = 0.05      # हर entry/exit fill असली चाहे गए price से इतना % worse (trader के खिलाफ़)
+DEFAULT_COMMISSION_PCT = 0.03    # round-trip (entry+exit) brokerage — return_pct से सीधा घटता है
+DEFAULT_POSITION_CAPITAL_RS = 50000.0   # per-trade rupee allocation, total_pnl_rs निकालने के लिए
+
 # ---------- Options data ----------
 OPTIONS_GREEKS = ["delta", "gamma", "theta", "vega", "iv"]
 OPTIONS_FIELDS = ["strike", "expiry", "oi", "oi_change", "iv", "ltp"] + OPTIONS_GREEKS

@@ -65,6 +65,10 @@ class BacktestRequest(BaseModel):
     sl_pct: float = config.DEFAULT_SL_PCT
     max_hold_bars: int = config.DEFAULT_MAX_HOLD_BARS
     split_date: str = config.TRAIN_TEST_SPLIT_DATE
+    # ---- added 2026-07-24: realism + position sizing ----
+    slippage_pct: float = config.DEFAULT_SLIPPAGE_PCT
+    commission_pct: float = config.DEFAULT_COMMISSION_PCT
+    position_capital_rs: float = config.DEFAULT_POSITION_CAPITAL_RS
 
 
 class CustomBacktestRequest(BaseModel):
@@ -76,6 +80,9 @@ class CustomBacktestRequest(BaseModel):
     sl_pct: float = config.DEFAULT_SL_PCT
     max_hold_bars: int = config.DEFAULT_MAX_HOLD_BARS
     split_date: str = config.TRAIN_TEST_SPLIT_DATE
+    slippage_pct: float = config.DEFAULT_SLIPPAGE_PCT
+    commission_pct: float = config.DEFAULT_COMMISSION_PCT
+    position_capital_rs: float = config.DEFAULT_POSITION_CAPITAL_RS
 
 
 class OptimizeRequest(BaseModel):
@@ -267,6 +274,8 @@ def backtest(req: BacktestRequest):
     result = run_train_test(
         df, signal, split_date=req.split_date,
         target_pct=req.target_pct, sl_pct=req.sl_pct, max_hold_bars=req.max_hold_bars,
+        slippage_pct=req.slippage_pct, commission_pct=req.commission_pct,
+        position_capital_rs=req.position_capital_rs,
     )
     result["rules_used"] = rules
     return result
@@ -297,6 +306,8 @@ def custom_backtest(req: CustomBacktestRequest):
     result = run_train_test(
         df, signal, split_date=req.split_date,
         target_pct=req.target_pct, sl_pct=req.sl_pct, max_hold_bars=req.max_hold_bars,
+        slippage_pct=req.slippage_pct, commission_pct=req.commission_pct,
+        position_capital_rs=req.position_capital_rs,
     )
     # Garuda verdict — best-effort (2026-07-22): reuses the train_test result
     # above instead of re-running the backtest. Never lets a validator bug
