@@ -1,0 +1,24 @@
+#!/bin/sh
+# Auto-push every commit — so a completed commit never sits unpushed.
+# Runs in the background so a large/slow push doesn't block `git commit`
+# itself (this repo carries multi-hundred-MB CSV data pushes).
+#
+# This file is version-controlled (unlike normal .git/hooks/*, which
+# aren't). It only takes effect once `core.hooksPath` is pointed at
+# scripts/hooks — see scripts/setup_git_hooks.sh (run once per clone).
+
+REPO_DIR="$(git rev-parse --show-toplevel)"
+BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+LOG="$REPO_DIR/.git/auto_push.log"
+
+(
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] auto-push: pushing $BRANCH"
+  if git -C "$REPO_DIR" push origin "$BRANCH" >>"$LOG" 2>&1; then
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] auto-push: OK"
+  else
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] auto-push: FAILED — will retry on next commit, or run 'git push' manually"
+  fi
+) >>"$LOG" 2>&1 &
+disown
+
+exit 0
