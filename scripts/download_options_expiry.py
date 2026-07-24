@@ -20,6 +20,7 @@ import sys
 import time
 import csv
 import io
+import gzip
 import zipfile
 from pathlib import Path
 from datetime import datetime, timedelta
@@ -29,7 +30,9 @@ import requests
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 _SYMBOL_LIST = _REPO_ROOT / "data" / "nifty100_symbols.csv"
 _OUT_DIR = _REPO_ROOT / "data" / "options_expiry"
+_INDEX_OUT_DIR = _OUT_DIR / "index_options"
 _OUT_DIR.mkdir(parents=True, exist_ok=True)
+_INDEX_OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 _UDIFF_URL = "https://nsearchives.nseindia.com/content/fo/BhavCopy_NSE_FO_0_0_0_{date}_F_0000.csv.zip"
 _HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
@@ -50,13 +53,38 @@ def load_stock_symbols() -> set:
         return {row["symbol"] for row in csv.DictReader(f)}
 
 
+def _dir_for(symbol: str) -> Path:
+    """Index options (NIFTY/BANKNIFTY/SENSEX) go in their own subfolder,
+    kept clearly separate from stock options — different underlying,
+    different strategy relevance."""
+    return _INDEX_OUT_DIR if symbol in _OUR_INDEX_SYMBOLS else _OUT_DIR
+
+
+def _path_for(symbol: str) -> Path:
+    # Index options are gzip-compressed (.csv.gz) — NIFTY alone hit
+    # GitHub's 100MB hard file-size limit at just 3 years of plain CSV
+    # (~35MB/year growth), and this pipeline is permanent/ever-growing.
+    # Stock-option files are ~10x smaller and stay plain .csv.
+    if symbol in _OUR_INDEX_SYMBOLS:
+        return _INDEX_OUT_DIR / f"{symbol}.csv.gz"
+    return _OUT_DIR / f"{symbol}.csv"
+
+
+def _open_for_read(path: Path):
+    return gzip.open(path, "rt", newline="") if path.suffix == ".gz" else open(path, newline="")
+
+
+def _open_for_append(path: Path):
+    return gzip.open(path, "at", newline="") if path.suffix == ".gz" else open(path, "a", newline="")
+
+
 def _existing_dates_for(symbol: str) -> set:
     """Which TradDt values are already saved for this symbol — so a
     re-run only appends genuinely new days, never duplicates."""
-    path = _OUT_DIR / f"{symbol}.csv"
+    path = _path_for(symbol)
     if not path.exists():
         return set()
-    with open(path) as f:
+    with _open_for_read(path) as f:
         return {row["TradDt"] for row in csv.DictReader(f)}
 
 
@@ -84,9 +112,9 @@ def download_one_day(date_str: str, symbols: set) -> dict:
 
 
 def append_rows(symbol: str, rows: list):
-    path = _OUT_DIR / f"{symbol}.csv"
+    path = _path_for(symbol)
     write_header = not path.exists()
-    with open(path, "a", newline="") as f:
+    with _open_for_append(path) as f:
         w = csv.DictWriter(f, fieldnames=_OUT_COLUMNS)
         if write_header:
             w.writeheader()
