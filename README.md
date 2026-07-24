@@ -12,6 +12,12 @@ python run_demo.py
 अगर यह बिना error के numbers दिखा दे — पूरा pipeline (indicators → rules → backtest) सही जुड़ा है।
 
 ## 3) असली data लाओ
+
+**Update (2026-07-24): daily/options data अब blocked नहीं है — नीचे "Permanent historical
+data pipeline" section देखो, वहाँ real 7-साल stock OHLC + 3-साल options data already है और
+daily cron से खुद-ब-खुद refresh होता रहता है।** नीचे वाला `data_fetcher.py` flow पुराना/
+alternative तरीका है, ऊपर वाला pipeline प्राथमिकता (authoritative) source है।
+
 ```bash
 python data_fetcher.py --timeframe 1day --years 2018 2026
 ```
@@ -20,8 +26,6 @@ python data_fetcher.py --timeframe 1day --years 2018 2026
   पुराना intraday history चाहिए तो Kite Historical API / TrueData / Global Datafeeds जैसा
   paid vendor चाहिए होगा — अपना account/API-key चाहिए, `data_fetcher.py` में
   `fetch_from_broker()` को उसके हिसाब से भरना।
-- Options data (`options_data_fetcher.py`) अभी blocked है — इसके लिए भी paid data source चाहिए
-  (देखो PROJECT_BLUEPRINT.md)।
 
 ## 4) अपनी strategy बनाओ या UI-style rules टेस्ट करो
 ```python
@@ -53,6 +57,37 @@ python optimizer.py --symbol RELIANCE --timeframe 1day --mode genetic
 
 ## 7) Files का status
 `index.html` खोलो — Build Ledger में हर फाइल का live status दिखता है।
+
+## Permanent historical data pipeline (`data/`)
+
+Real (never fabricated) historical market data, permanently committed to
+this repo — not just kept on the server — so the strategy tester and any
+future backtest work always has a ready, current, version-controlled
+dataset to read from.
+
+| Path | Contents | Source | Range |
+|---|---|---|---|
+| `data/nifty100_symbols.csv` | NIFTY-100 constituent list: `symbol,company_name,industry,isin` | NSE official (`niftyindices.com`) | current constituents |
+| `data/stock_daily/<SYMBOL>.csv` | Daily OHLCV: `date,open,high,low,close,volume` | Yahoo Finance (`yfinance`, `<SYMBOL>.NS`) | 7 years, one file per NIFTY-100 stock |
+| `data/options_expiry/<SYMBOL>.csv` | Strike-wise CE/PE daily data: `TradDt,TckrSymb,XpryDt,StrkPric,OptnTp,OpnPric,HghPric,LwPric,ClsPric,SttlmPric,OpnIntrst,ChngInOpnIntrst,TtlTradgVol,UndrlygPric` | NSE official UDiFF Common Bhavcopy Final (`nsearchives.nseindia.com`) | 3 years, one file per NIFTY-100 stock + NIFTY/BANKNIFTY |
+
+**Known gap**: SENSEX has no file in `data/options_expiry/` — SENSEX is
+BSE-listed, so it never appears in NSE's bhavcopy. A BSE-specific source
+would be needed to cover it; not built.
+
+**How it stays current**: `scripts/daily_data_update.sh` runs every
+weekday at 19:00 IST via the server's crontab (well after both market
+close and NSE's bhavcopy publish time). It re-runs both downloaders
+(`scripts/download_stock_daily.py`, `scripts/download_options_expiry.py`
+— both idempotent, safe to re-run any time), then auto-commits and
+auto-pushes any changed data via `scripts/auto_commit_push.sh`. **No
+manual step is needed** — every commit in this repo (from this cron or
+anyone working here) is auto-pushed by the version-controlled
+`scripts/hooks/post-commit` hook (see `scripts/setup_git_hooks.sh` — run
+once per fresh clone to activate it: `bash scripts/setup_git_hooks.sh`).
+
+For "as of when" freshness, check the latest commit touching `data/`:
+`git log -1 --format=%cd -- data/`.
 
 ## अगला कदम (अभी बाकी)
 - `options_data_fetcher.py` — data source तय होने के बाद (paid vendor चाहिए)
